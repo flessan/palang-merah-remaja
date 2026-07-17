@@ -1,0 +1,6 @@
+name = "pmr-wira-smkn4"
+compatibility_date = "2026-07-17"
+pages_build_output_dir = "dist"
+
+# Add DATABASE_URL in Cloudflare Pages > Settings > Environment variables.
+# Do not commit the Neon connection string to this file.

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo PMR SMKN 4 Banjarmasin">
+  <rect width="512" height="512" fill="#DC2626"/>
+  <rect x="224" y="144" width="64" height="224" rx="12" fill="#FFFFFF"/>
+  <rect x="144" y="224" width="224" height="64" rx="12" fill="#FFFFFF"/>
+</svg>

@@ -1,0 +1,5 @@
+# Optional clean paths for the tab-based SPA. API paths intentionally have no wildcard rule.
+/profil    /index.html   200
+/edukasi   /index.html   200
+/galeri    /index.html   200
+/kontak    /index.html   200
