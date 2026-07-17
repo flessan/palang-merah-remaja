@@ -21,6 +21,7 @@ import {
   Edit3,
   ExternalLink,
   Eye,
+  FileText,
   Flame,
   FolderOpen,
   GraduationCap,

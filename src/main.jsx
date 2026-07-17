@@ -14,6 +14,7 @@ import {
   CircleAlert,
   CircleCheck,
   Clock3,
+  Copy,
   Crown,
   Droplets,
   Eye,
