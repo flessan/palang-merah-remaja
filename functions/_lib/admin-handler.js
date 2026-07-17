@@ -473,5 +473,31 @@ export async function handleAdminRequest(context, sql, subPath) {
     return error("Restore langsung ke Neon dari file di panel web sedang dinonaktifkan demi keamanan produksi. Silakan impor via SQL atau API per-modul.", 403, request);
   }
 
+  if (action === "upload" && request.method === "POST") {
+    const apiKey = env?.IMGBB_API_KEY || body.key || body.apiKey;
+    if (!apiKey || apiKey === "YOUR_CLIENT_API_KEY") {
+      return error("API Key ImgBB belum dikonfigurasi di server (`IMGBB_API_KEY`). Silakan masukkan API Key kamu langsung di antarmuka pengunggah pada panel admin.", 400, request);
+    }
+    try {
+      const imgData = body.image;
+      if (!imgData) return error("Data gambar (`image`) wajib dicantumkan.", 422, request);
+      const expiration = body.expiration || "";
+      const imgbbUrl = `https://api.imgbb.com/1/upload?key=${apiKey}${expiration ? `&expiration=${expiration}` : ""}`;
+
+      const form = new FormData();
+      form.append("image", imgData);
+      if (body.name) form.append("name", body.name);
+
+      const resp = await fetch(imgbbUrl, { method: "POST", body: form });
+      const respJson = await resp.json();
+      if (!resp.ok || !respJson.success) {
+        return error(respJson.error?.message || "Gagal mengunggah gambar ke server ImgBB.", resp.status || 500, request);
+      }
+      return json({ ok: true, data: respJson.data }, 200, request);
+    } catch (cause) {
+      return error("Terjadi kesalahan saat mengunggah ke ImgBB: " + cause.message, 500, request);
+    }
+  }
+
   return error("Endpoint admin tidak ditemukan: /api/admin/" + action, 404, request);
 }

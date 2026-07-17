@@ -281,12 +281,64 @@ function App() {
   );
 }
 
+function formatRosterForWhatsApp(roster, viewType) {
+  if (!roster) return "";
+  const uksList = roster.uks_schedule || [];
+  const lapList = roster.lapangan_schedule || [];
+  const baseUrl = window.location.origin || "https://pmr-wira-smkn4.pages.dev";
+
+  if (viewType === "uks") {
+    let titleRange = "13-17 Juli 2026";
+    if (uksList.length > 0) {
+      const firstTgl = uksList[0].tanggal.replace(/^[A-Za-z]+,\s*/, "");
+      const fifthTgl = uksList[Math.min(4, uksList.length - 1)].tanggal.replace(/^[A-Za-z]+,\s*/, "");
+      const firstNum = firstTgl.split(" ")[0];
+      titleRange = `${firstNum}-${fifthTgl}`;
+    }
+
+    let text = `*Jadwal Piket Jaga UKS Tanggal ${titleRange}*\n`;
+    const slice5 = uksList.slice(0, 5);
+    slice5.forEach((item) => {
+      text += `\n${item.tanggal}\n\n`;
+      (item.petugas || []).forEach((nama) => {
+        text += `* ${nama}\n`;
+      });
+    });
+    text += `\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
+    return text;
+  } else {
+    const nextMonday = lapList[0] || { tanggal: "Senin, 13 Juli 2026", petugas: [] };
+    let text = `*Jadwal Jaga Upacara ${nextMonday.tanggal}*\n\n`;
+    (nextMonday.petugas || []).forEach((nama) => {
+      text += `* ${nama}\n`;
+    });
+    text += `\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
+    return text;
+  }
+}
+
 function PublicRosterWidget({ roster }) {
   if (!roster || roster.is_published === false) return null;
   const [activeView, setActiveView] = useState("uks"); // 'uks' or 'lapangan'
   const [modalOpen, setModalOpen] = useState(false);
 
   const scheduleList = activeView === "uks" ? (roster.uks_schedule || []) : (roster.lapangan_schedule || []);
+
+  const handleShareWA = () => {
+    const text = formatRosterForWhatsApp(roster, activeView);
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleCopyText = () => {
+    const text = formatRosterForWhatsApp(roster, activeView);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      alert("Teks jadwal tanpa emoji dan link website berhasil disalin! Siap ditempel ke WhatsApp.");
+    } else {
+      prompt("Salin teks jadwal berikut:", text);
+    }
+  };
 
   return (
     <div className="public-roster-section">
@@ -303,6 +355,21 @@ function PublicRosterWidget({ roster }) {
             </button>
             <button className={`rpc-subtab ${activeView === "lapangan" ? "active" : ""}`} onClick={() => setActiveView("lapangan")}>
               🚩 Lapangan Upacara ({roster.lapangan_schedule?.length || 0} Hari)
+            </button>
+          </div>
+        </div>
+
+        <div className="wa-share-bar">
+          <div className="wa-share-info">
+            <MessageCircle size={18} />
+            <span>Bagikan jadwal {activeView === "uks" ? "Piket Jaga UKS" : "Jaga Upacara Senin"} ke WhatsApp (Format rapi tanpa emoji beserta tautan link):</span>
+          </div>
+          <div className="wa-share-btns">
+            <button type="button" className="button button-wa button-sm" onClick={handleShareWA}>
+              <Send size={14} /> Share ke WhatsApp
+            </button>
+            <button type="button" className="button button-ghost button-sm" onClick={handleCopyText}>
+              <Copy size={14} /> Salin Teks & Link
             </button>
           </div>
         </div>
@@ -345,6 +412,23 @@ function PublicRosterWidget({ roster }) {
 
 function PublicRosterModal({ roster, onClose }) {
   const [tab, setTab] = useState("uks");
+
+  const handleModalWA = () => {
+    const text = formatRosterForWhatsApp(roster, tab === "lapangan" ? "lapangan" : "uks");
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleModalCopy = () => {
+    const text = formatRosterForWhatsApp(roster, tab === "lapangan" ? "lapangan" : "uks");
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      alert("Teks jadwal tanpa emoji dan link website berhasil disalin! Siap ditempel ke WhatsApp.");
+    } else {
+      prompt("Salin teks jadwal berikut:", text);
+    }
+  };
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="admin-modal modal-lg" role="dialog">
@@ -369,6 +453,23 @@ function PublicRosterModal({ roster, onClose }) {
               ⚖️ Bukti Keadilan Distribusi
             </button>
           </div>
+
+          {tab !== "fairness" && (
+            <div className="wa-share-bar" style={{ margin: "6px 0" }}>
+              <div className="wa-share-info">
+                <MessageCircle size={18} />
+                <span>Bagikan daftar {tab === "uks" ? "Piket Jaga UKS" : "Jaga Upacara"} ini ke WhatsApp (Format rapi tanpa emoji + tautan resmi):</span>
+              </div>
+              <div className="wa-share-btns">
+                <button type="button" className="button button-wa button-sm" onClick={handleModalWA}>
+                  <Send size={14} /> Share ke WhatsApp
+                </button>
+                <button type="button" className="button button-ghost button-sm" onClick={handleModalCopy}>
+                  <Copy size={14} /> Salin Teks & Link
+                </button>
+              </div>
+            </div>
+          )}
 
           <div style={{ maxHeight: "50vh", overflowY: "auto", display: "grid", gap: "10px", paddingRight: "4px" }}>
             {tab !== "fairness" ? (

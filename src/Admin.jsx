@@ -12,12 +12,14 @@ import {
   CircleAlert,
   CircleCheck,
   Clock3,
+  Cloud,
   Copy,
   Crown,
   Database,
   Download,
   Droplets,
   Edit3,
+  ExternalLink,
   Eye,
   Flame,
   FolderOpen,
@@ -28,6 +30,7 @@ import {
   Image as ImageIcon,
   Info,
   Instagram,
+  Key,
   Lock,
   LogOut,
   Mail,
@@ -48,6 +51,7 @@ import {
   Sun,
   Trash2,
   Upload,
+  UploadCloud,
   UserCheck,
   UserRound,
   UserRoundCheck,
@@ -134,6 +138,7 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
   const [editingFaq, setEditingFaq] = useState(null); // { item, index }
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [restoreJsonText, setRestoreJsonText] = useState("");
+  const [showImgbbModal, setShowImgbbModal] = useState(false);
 
   const loadAdminData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -507,6 +512,9 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           <button className="button button-ghost button-sm" onClick={() => setShowRestoreModal(true)} title="Impor Restore">
             <Upload size={15} /> <span>Restore</span>
           </button>
+          <button className="button button-ghost button-sm" onClick={() => setShowImgbbModal(true)} title="Studio Unggah Gambar via API ImgBB">
+            <UploadCloud size={15} /> <span>ImgBB Studio</span>
+          </button>
           <button className="button button-ghost button-sm text-red" onClick={handleResetDemo} title="Reset ke Data Demo Bawaan">
             <RotateCcw size={15} /> <span>Reset</span>
           </button>
@@ -668,6 +676,7 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           item={editingNews}
           onClose={() => setEditingNews(null)}
           onSave={saveNews}
+          showToast={showToast}
         />
       )}
       {editingEvent && (
@@ -682,6 +691,7 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           item={editingGallery}
           onClose={() => setEditingGallery(null)}
           onSave={saveGallery}
+          showToast={showToast}
         />
       )}
       {editingPerson && (
@@ -693,6 +703,7 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
             saveContentKey("org", newOrg);
             setEditingPerson(null);
           }}
+          showToast={showToast}
         />
       )}
       {editingDivision && (
@@ -726,6 +737,12 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
             saveContentKey("faq", newFaq);
             setEditingFaq(null);
           }}
+        />
+      )}
+      {showImgbbModal && (
+        <ImgbbStudioModal
+          onClose={() => setShowImgbbModal(false)}
+          showToast={showToast}
         />
       )}
       {showRestoreModal && (
@@ -1195,6 +1212,55 @@ function RosterTab({ roster, org, onSaveRoster, showToast }) {
     }
   };
 
+  const formatAdminWA = (viewType) => {
+    const uksList = currentRoster.uks_schedule || [];
+    const lapList = currentRoster.lapangan_schedule || [];
+    const baseUrl = window.location.origin || "https://pmr-wira-smkn4.pages.dev";
+
+    if (viewType === "uks") {
+      let titleRange = "13-17 Juli 2026";
+      if (uksList.length > 0) {
+        const firstTgl = uksList[0].tanggal.replace(/^[A-Za-z]+,\s*/, "");
+        const fifthTgl = uksList[Math.min(4, uksList.length - 1)].tanggal.replace(/^[A-Za-z]+,\s*/, "");
+        const firstNum = firstTgl.split(" ")[0];
+        titleRange = `${firstNum}-${fifthTgl}`;
+      }
+      let text = `*Jadwal Piket Jaga UKS Tanggal ${titleRange}*\n`;
+      uksList.slice(0, 5).forEach((item) => {
+        text += `\n${item.tanggal}\n\n`;
+        (item.petugas || []).forEach((nama) => {
+          text += `* ${nama}\n`;
+        });
+      });
+      text += `\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
+      return text;
+    } else {
+      const nextMonday = lapList[0] || { tanggal: "Senin, 13 Juli 2026", petugas: [] };
+      let text = `*Jadwal Jaga Upacara ${nextMonday.tanggal}*\n\n`;
+      (nextMonday.petugas || []).forEach((nama) => {
+        text += `* ${nama}\n`;
+      });
+      text += `\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
+      return text;
+    }
+  };
+
+  const handleAdminShareWA = () => {
+    const text = formatAdminWA(activeSubView);
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleAdminCopyText = () => {
+    const text = formatAdminWA(activeSubView);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      showToast("Teks jadwal tanpa emoji & link berhasil disalin! Siap ditempel ke WA.");
+    } else {
+      prompt("Salin teks jadwal berikut:", text);
+    }
+  };
+
   // Check fairness difference
   const countsArr = Object.values(currentRoster.summary_counts || {}).map(c => c.total || 0);
   const maxShift = countsArr.length ? Math.max(...countsArr) : 0;
@@ -1295,6 +1361,21 @@ function RosterTab({ roster, org, onSaveRoster, showToast }) {
           >
             <Award size={16} /> Jadwal Piket Lapangan Upacara ({currentRoster.lapangan_schedule?.length || 0} Hari Senin)
           </button>
+        </div>
+
+        <div className="wa-share-bar">
+          <div className="wa-share-info">
+            <MessageCircle size={18} />
+            <span>Bagikan jadwal {activeSubView === "uks" ? "Piket Jaga UKS" : "Jaga Upacara Senin"} ke WhatsApp (Format rapi tanpa emoji beserta tautan link):</span>
+          </div>
+          <div className="wa-share-btns">
+            <button type="button" className="button button-wa button-sm" onClick={handleAdminShareWA}>
+              <Send size={14} /> Share ke WhatsApp
+            </button>
+            <button type="button" className="button button-ghost button-sm" onClick={handleAdminCopyText}>
+              <Copy size={14} /> Salin Teks & Link
+            </button>
+          </div>
         </div>
 
         <div className="rss-list">
@@ -1944,19 +2025,280 @@ function SettingsTab({ stats, guides, faq, contact, uksInfo, onSaveStats, onSave
 // MODAL COMPONENTS
 // ==========================
 
+// Helper to read file as base64 string
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64String = reader.result.split(",")[1] || reader.result;
+      resolve(base64String);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export function ImgbbStudioModal({ onClose, onUploadSuccess, showToast }) {
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem("pmr_imgbb_key") || "");
+  const [expiration, setExpiration] = useState("600"); // default 600s as requested in curl example
+  const [base64Input, setBase64Input] = useState("");
+  const [fileInput, setFileInput] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedResult, setUploadedResult] = useState(null);
+  const [activeTab, setActiveTab] = useState("file"); // 'file' or 'base64'
+
+  const handleSaveKey = (e) => {
+    e.preventDefault();
+    localStorage.setItem("pmr_imgbb_key", apiKey.trim());
+    showToast("API Key ImgBB berhasil disimpan di browser lokal!");
+  };
+
+  const handleUpload = async (e) => {
+    e && e.preventDefault();
+    let keyToUse = apiKey.trim() || localStorage.getItem("pmr_imgbb_key") || "";
+    if (!keyToUse) {
+      showToast("Harap masukkan API Key ImgBB di kotak pengaturan di atas (atau pilih file tes).", "error");
+      return;
+    }
+
+    setUploading(true);
+    setUploadedResult(null);
+
+    try {
+      let imagePayload = "";
+      if (activeTab === "file") {
+        if (!fileInput) {
+          showToast("Pilih file gambar terlebih dahulu.", "error");
+          setUploading(false);
+          return;
+        }
+        imagePayload = await readFileAsBase64(fileInput);
+      } else {
+        if (!base64Input.trim()) {
+          showToast("Masukkan string base64 atau URL gambar.", "error");
+          setUploading(false);
+          return;
+        }
+        imagePayload = base64Input.trim().replace(/^image=/i, "");
+      }
+
+      const formData = new FormData();
+      formData.append("image", imagePayload);
+
+      const targetUrl = `https://api.imgbb.com/1/upload?key=${keyToUse}${expiration && expiration !== "0" ? `&expiration=${expiration}` : ""}`;
+      const response = await fetch(targetUrl, {
+        method: "POST",
+        body: formData,
+      });
+
+      const respJson = await response.json();
+      if (!response.ok || !respJson.success) {
+        throw new Error(respJson.error?.message || "Gagal mengunggah gambar ke ImgBB.");
+      }
+
+      const imageUrl = respJson.data?.url || respJson.data?.display_url;
+      setUploadedResult(respJson.data);
+      showToast("Unggah gambar ke ImgBB berhasil!");
+
+      window.__pmrUploadedAssets = window.__pmrUploadedAssets || [];
+      window.__pmrUploadedAssets.unshift({
+        path: imageUrl,
+        label: `☁️ ImgBB (${fileInput?.name || "Base64"})`
+      });
+
+      if (onUploadSuccess) {
+        onUploadSuccess(imageUrl);
+      }
+    } catch (err) {
+      showToast("Kesalahan ImgBB: " + err.message, "error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="admin-modal modal-lg" role="dialog">
+        <div className="modal-head">
+          <div>
+            <span className="eyebrow"><UploadCloud size={16} /> IMGBB CLOUD UPLOADER</span>
+            <h2>Unggah Gambar via API ImgBB (`api.imgbb.com`)</h2>
+          </div>
+          <button className="close-button" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="modal-body-form">
+          {/* API Key Configuration Box */}
+          <div className="imgbb-key-box">
+            <div className="ikb-head">
+              <Key size={18} />
+              <div>
+                <strong>Pengaturan API Key Client (`YOUR_CLIENT_API_KEY`)</strong>
+                <small>Diperlukan untuk memanggil <code>https://api.imgbb.com/1/upload</code> langsung dari browser.</small>
+              </div>
+            </div>
+            <form onSubmit={handleSaveKey} className="ikb-form">
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Masukkan API Key ImgBB milikmu di sini..."
+              />
+              <button type="submit" className="button button-dark button-sm"><Check size={14} /> Simpan Key</button>
+            </form>
+            <div className="ikb-help">
+              <span>💡 Belum punya API Key?</span>
+              <a href="https://api.imgbb.com/" target="_blank" rel="noreferrer">
+                Dapatkan API Key Gratis dari ImgBB (Gratis 32 MB per foto) <ExternalLink size={13} />
+              </a>
+            </div>
+          </div>
+
+          {/* Upload Method Tabs */}
+          <div className="rss-tabs" style={{ marginBottom: "6px" }}>
+            <button
+              type="button"
+              className={`rss-tab ${activeTab === "file" ? "active" : ""}`}
+              onClick={() => setActiveTab("file")}
+            >
+              <UploadCloud size={16} /> Pilih File Gambar dari Perangkat
+            </button>
+            <button
+              type="button"
+              className={`rss-tab ${activeTab === "base64" ? "active" : ""}`}
+              onClick={() => setActiveTab("base64")}
+            >
+              <FileText size={16} /> Paste String Base64 / Contoh cURL
+            </button>
+          </div>
+
+          {activeTab === "file" ? (
+            <div className="file-drop-area">
+              <input
+                type="file"
+                accept="image/*"
+                id="imgbb-file-input"
+                onChange={(e) => setFileInput(e.target.files?.[0] || null)}
+              />
+              <label htmlFor="imgbb-file-input" className="file-drop-label">
+                <UploadCloud size={40} />
+                <strong>{fileInput ? fileInput.name : "Klik atau Pilih File Gambar (JPG, PNG, WEBP, AVIF)"}</strong>
+                <small>{fileInput ? `Ukuran: ${(fileInput.size / 1024).toFixed(1)} KB` : "Maksimal ukuran file 32 MB sesuai ketentuan ImgBB."}</small>
+              </label>
+            </div>
+          ) : (
+            <label className="field full">
+              <span>Masukkan String Base64 (`R0lGODlh...` seperti di contoh cURL) atau URL gambar:</span>
+              <textarea
+                rows="3"
+                value={base64Input}
+                onChange={(e) => setBase64Input(e.target.value)}
+                placeholder="R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+              />
+            </label>
+          )}
+
+          {/* Expiration Configuration */}
+          <div className="two-fields">
+            <label className="field">
+              <span>Masa Kedaluwarsa (`expiration` dalam detik)</span>
+              <select value={expiration} onChange={(e) => setExpiration(e.target.value)}>
+                <option value="600">600 Detik / 10 Menit (`expiration=600` sesuai contoh cURL)</option>
+                <option value="3600">3600 Detik / 1 Jam</option>
+                <option value="86400">86400 Detik / 1 Hari</option>
+                <option value="604800">604800 Detik / 1 Minggu</option>
+                <option value="0">0 (Permanen / Tanpa Kedaluwarsa)</option>
+              </select>
+            </label>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <button
+                type="button"
+                className="button button-primary full"
+                onClick={handleUpload}
+                disabled={uploading || (activeTab === "file" ? !fileInput : !base64Input.trim())}
+              >
+                {uploading ? "Mengunggah ke ImgBB..." : <>Unggah ke Server ImgBB <Upload size={16} /></>}
+              </button>
+            </div>
+          </div>
+
+          {/* Uploaded Result Preview */}
+          {uploadedResult && (
+            <div className="imgbb-result-box">
+              <div className="irb-head">
+                <span className="tag-green-pill"><Check size={14} /> UNGGAHAN IMGBB SUKSES</span>
+                <small>URL resmi dari CDN ImgBB siap digunakan!</small>
+              </div>
+              <div className="irb-content">
+                <img src={uploadedResult.url || uploadedResult.display_url} alt="Hasil Unggahan" />
+                <div className="irb-urls">
+                  <label className="field">
+                    <span>Direct URL Gambar (`url`)</span>
+                    <div className="input-copy-row">
+                      <input readOnly value={uploadedResult.url || ""} />
+                      <button type="button" className="button button-ghost button-sm" onClick={() => { navigator.clipboard?.writeText(uploadedResult.url); showToast("URL berhasil disalin!"); }}>
+                        <Copy size={14} /> Salin
+                      </button>
+                    </div>
+                  </label>
+                  {uploadedResult.delete_url && (
+                    <div className="irb-del-link">
+                      <a href={uploadedResult.delete_url} target="_blank" rel="noreferrer" className="text-red">
+                        Link Hapus Otomatis (Delete URL) <ExternalLink size={12} />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="modal-actions">
+            <button type="button" className="button button-ghost" onClick={onClose}>Tutup Studio Unggah</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ImgbbUploadButton({ onUploadSuccess, showToast, label = "Unggah via ImgBB" }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="button button-ghost button-sm" onClick={() => setModalOpen(true)} title="Unggah gambar baru langsung ke server ImgBB">
+        <UploadCloud size={14} /> <span>{label}</span>
+      </button>
+      {modalOpen && (
+        <ImgbbStudioModal
+          onClose={() => setModalOpen(false)}
+          showToast={showToast}
+          onUploadSuccess={(url) => {
+            if (onUploadSuccess) onUploadSuccess(url);
+            setModalOpen(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 function AssetLibraryPicker({ onSelect }) {
   const [open, setOpen] = useState(false);
+  const combinedAssets = useMemo(() => {
+    return [...(window.__pmrUploadedAssets || []), ...assetLibrary];
+  }, [open]);
+
   return (
     <div className="asset-picker-wrapper">
       <button type="button" className="button button-ghost button-sm" onClick={() => setOpen(!open)}>
-        <FolderOpen size={14} /> Pilih dari Gudang Foto Repo ({assetLibrary.length})
+        <FolderOpen size={14} /> Pilih dari Gudang ({combinedAssets.length})
       </button>
       {open && (
         <div className="asset-picker-dropdown">
-          <div className="ap-head"><span>Pilih Foto dari Repository (`/gudang/gallery/...`)</span><button type="button" onClick={() => setOpen(false)}><X size={15} /></button></div>
+          <div className="ap-head"><span>Pilih Foto dari Repository atau ImgBB</span><button type="button" onClick={() => setOpen(false)}><X size={15} /></button></div>
           <div className="ap-grid">
-            {assetLibrary.map((item) => (
-              <div key={item.path} className="ap-item" onClick={() => { onSelect(item.path); setOpen(false); }}>
+            {combinedAssets.map((item, idx) => (
+              <div key={item.path + idx} className="ap-item" onClick={() => { onSelect(item.path); setOpen(false); }}>
                 <img src={item.path} alt={item.label} loading="lazy" />
                 <span>{item.label}</span>
               </div>
@@ -1968,7 +2310,7 @@ function AssetLibraryPicker({ onSelect }) {
   );
 }
 
-function AnnouncementModal({ item, onClose, onSave }) {
+function AnnouncementModal({ item, onClose, onSave, showToast }) {
   const [form, setForm] = useState(item);
   const update = (k, v) => setForm({ ...form, [k]: v });
 
@@ -2002,6 +2344,7 @@ function AnnouncementModal({ item, onClose, onSave }) {
             <div className="input-with-picker">
               <input value={form.image || form.image_url || ""} onChange={(e) => update("image_url", e.target.value)} placeholder="/gudang/gallery/juara.avif" required />
               <AssetLibraryPicker onSelect={(path) => update("image_url", path)} />
+              <ImgbbUploadButton onUploadSuccess={(url) => update("image_url", url)} showToast={showToast} />
             </div>
           </div>
           <label className="field full">
@@ -2086,7 +2429,7 @@ function EventModal({ item, onClose, onSave }) {
   );
 }
 
-function GalleryModal({ item, onClose, onSave }) {
+function GalleryModal({ item, onClose, onSave, showToast }) {
   const [form, setForm] = useState({ ...item, images: item.images || [item.cover || item.cover_url || ""] });
   const update = (k, v) => setForm({ ...form, [k]: v });
 
@@ -2142,6 +2485,7 @@ function GalleryModal({ item, onClose, onSave }) {
             <div className="input-with-picker">
               <input value={form.cover || form.cover_url || ""} onChange={(e) => update("cover_url", e.target.value)} required />
               <AssetLibraryPicker onSelect={(path) => update("cover_url", path)} />
+              <ImgbbUploadButton onUploadSuccess={(url) => update("cover_url", url)} showToast={showToast} />
             </div>
           </div>
           <label className="field full">
@@ -2153,9 +2497,12 @@ function GalleryModal({ item, onClose, onSave }) {
           <div className="images-list-box">
             <div className="ilb-head">
               <span>Daftar Foto dalam Album ({form.images?.length || 0})</span>
-              <button type="button" className="button button-ghost button-sm" onClick={() => addImageRow()}>
-                <Plus size={14} /> Tambah Foto
-              </button>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <ImgbbUploadButton onUploadSuccess={(url) => addImageRow(url)} showToast={showToast} label="Unggah Foto ImgBB Baru" />
+                <button type="button" className="button button-ghost button-sm" onClick={() => addImageRow()}>
+                  <Plus size={14} /> Tambah Foto
+                </button>
+              </div>
             </div>
             <div className="ilb-rows">
               {form.images?.map((imgUrl, idx) => (
@@ -2163,6 +2510,7 @@ function GalleryModal({ item, onClose, onSave }) {
                   <span className="row-num">{idx + 1}</span>
                   <input value={imgUrl} onChange={(e) => updateImageRow(idx, e.target.value)} placeholder="/gudang/gallery/..." />
                   <AssetLibraryPicker onSelect={(path) => updateImageRow(idx, path)} />
+                  <ImgbbUploadButton onUploadSuccess={(url) => updateImageRow(idx, url)} showToast={showToast} label="ImgBB" />
                   {form.images.length > 1 && (
                     <button type="button" className="text-red" onClick={() => removeImageRow(idx)}><Trash2 size={15} /></button>
                   )}
@@ -2186,7 +2534,7 @@ function GalleryModal({ item, onClose, onSave }) {
   );
 }
 
-function PersonModal({ modalData, org, onClose, onSaveOrg }) {
+function PersonModal({ modalData, org, onClose, onSaveOrg, showToast }) {
   const { type, item, index } = modalData;
   const [form, setForm] = useState(item);
   const update = (k, v) => setForm({ ...form, [k]: v });
@@ -2239,6 +2587,7 @@ function PersonModal({ modalData, org, onClose, onSaveOrg }) {
                 <div className="input-with-picker">
                   <input value={form.foto || ""} onChange={(e) => update("foto", e.target.value)} placeholder="/gudang/org/..." />
                   <AssetLibraryPicker onSelect={(path) => update("foto", path)} />
+                  <ImgbbUploadButton onUploadSuccess={(url) => update("foto", url)} showToast={showToast} />
                 </div>
               </div>
             )}
