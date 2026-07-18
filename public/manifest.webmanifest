@@ -1,14 +1,20 @@
 {
   "name": "PMR Wira SMKN 4 Banjarmasin",
   "short_name": "PMR Wira",
-  "description": "Pusat informasi, edukasi P3K, dan pendaftaran relawan PMR Wira.",
+  "description": "Situs resmi PMR Wira — Ekstrakurikuler Palang Merah Remaja SMKN 4 Banjarmasin. Humanis • Peduli • Tanggap. Pendaftaran relawan, edukasi P3K, jadwal UKS & galeri.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f7f6f2",
+  "background_color": "#f8fafc",
   "theme_color": "#dc2626",
   "lang": "id",
+  "scope": "/",
   "icons": [
     { "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
-    { "src": "/gudang/logo/pmr-logo.webp", "sizes": "192x192", "type": "image/webp" }
+    { "src": "/gudang/logo/pmr-logo.webp", "sizes": "192x192", "type": "image/webp" },
+    { "src": "/gudang/logo/pmr-logo.webp", "sizes": "512x512", "type": "image/webp" }
+  ],
+  "categories": ["education", "health", "social"],
+  "screenshots": [
+    { "src": "/gudang/gallery/juara.avif", "sizes": "1280x720", "type": "image/avif", "form_factor": "wide", "label": "Galeri kegiatan PMR Wira" }
   ]
 }
