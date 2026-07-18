@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Accessibility,
-  ArrowLeft,
   ArrowRight,
+  ArrowUp,
   Award,
-  Bell,
+  BookOpen,
   CalendarDays,
   Check,
   ChevronDown,
@@ -18,12 +18,16 @@ import {
   Crown,
   Droplets,
   Eye,
+  Flag,
   Flame,
   GraduationCap,
   HandHeart,
   HeartHandshake,
   HeartPulse,
+  History as HistoryIcon,
+  Home as HomeIcon,
   Instagram,
+  Landmark,
   Mail,
   MapPin,
   Menu,
@@ -55,16 +59,20 @@ import "./styles.css";
 const iconMap = {
   accessibility: Accessibility,
   award: Award,
-  bell: Bell,
+  "book-open": BookOpen,
   calendar: CalendarDays,
   crown: Crown,
   droplets: Droplets,
+  flag: Flag,
   flame: Flame,
   "graduation-cap": GraduationCap,
   "hand-heart": HandHeart,
   "heart-handshake": HeartHandshake,
   "heart-pulse": HeartPulse,
+  history: HistoryIcon,
+  home: HomeIcon,
   instagram: Instagram,
+  landmark: Landmark,
   megaphone: Megaphone,
   "notebook-pen": NotebookPen,
   phone: Phone,
@@ -82,6 +90,35 @@ function Icon({ name, size = 18, strokeWidth = 2.2, ...props }) {
   return <LucideIcon size={size} strokeWidth={strokeWidth} aria-hidden="true" {...props} />;
 }
 
+const NAV_ITEMS = [
+  { id: "beranda", label: "Beranda", icon: "home", desc: "Kabar, agenda & jadwal jaga" },
+  { id: "profil", label: "Profil", icon: "user-round", desc: "Visi, misi & struktur organisasi" },
+  { id: "sejarah", label: "Sejarah", icon: "landmark", desc: "Riwayat & para pendiri PMR Wira" },
+  { id: "uks", label: "Ruang UKS & Obat", icon: "heart-pulse", desc: "Layanan kesehatan gratis" },
+  { id: "edukasi", label: "Edukasi P3K", icon: "shield-check", desc: "Panduan pertolongan pertama" },
+  { id: "galeri", label: "Galeri", icon: "award", desc: "Dokumentasi kegiatan" },
+  { id: "kontak", label: "Kontak", icon: "megaphone", desc: "Sekretariat & jam layanan" },
+];
+
+const PAGE_TITLES = {
+  beranda: "PMR Wira — SMKN 4 Banjarmasin | Palang Merah Remaja",
+  profil: "Profil & Struktur — PMR Wira SMKN 4 Banjarmasin",
+  sejarah: "Sejarah & Pendiri — PMR Wira SMKN 4 Banjarmasin",
+  uks: "Ruang UKS & Obat Gratis — PMR Wira SMKN 4 Banjarmasin",
+  edukasi: "Edukasi P3K — PMR Wira SMKN 4 Banjarmasin",
+  galeri: "Galeri Kegiatan — PMR Wira SMKN 4 Banjarmasin",
+  kontak: "Kontak Sekretariat — PMR Wira SMKN 4 Banjarmasin",
+  admin: "Portal Admin — PMR Wira SMKN 4 Banjarmasin",
+};
+
+// Validasi parameter ?tab= agar URL yang rusak/tidak dikenal tidak
+// merender halaman kosong — selalu jatuh kembali ke "beranda".
+const KNOWN_TABS = new Set(Object.keys(PAGE_TITLES));
+function tabFromLocation() {
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  return tab && KNOWN_TABS.has(tab) ? tab : "beranda";
+}
+
 function mergeContent(data) {
   if (!data || typeof data !== "object") return fallbackContent;
   return {
@@ -94,7 +131,6 @@ function mergeContent(data) {
     org: { ...fallbackContent.org, ...(data.org || {}) },
     contact: { ...fallbackContent.contact, ...(data.contact || {}) },
     guides: data.guides?.length ? data.guides : fallbackContent.guides,
-    faq: data.faq?.length ? data.faq : fallbackContent.faq,
     roster: data.roster || fallbackContent.roster,
   };
 }
@@ -109,20 +145,9 @@ async function loadContent() {
   }
 }
 
-async function postJSON(path, payload) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || "Terjadi kesalahan. Coba lagi.");
-  return body;
-}
-
 function App() {
   const [content, setContent] = useState(fallbackContent);
-  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "beranda");
+  const [activeTab, setActiveTab] = useState(tabFromLocation);
   const [theme, setTheme] = useState(() => localStorage.getItem("pmr_theme") || "light");
   const [toast, setToast] = useState(null);
   const [gallerySearch, setGallerySearch] = useState("");
@@ -131,6 +156,7 @@ function App() {
   const [slide, setSlide] = useState(0);
   const [selectedGuide, setSelectedGuide] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [showBackTop, setShowBackTop] = useState(false);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -147,15 +173,29 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    const onPopState = () => setActiveTab(new URLSearchParams(window.location.search).get("tab") || "beranda");
+    document.title = PAGE_TITLES[activeTab] || PAGE_TITLES.beranda;
+  }, [activeTab]);
+
+  useEffect(() => {
+    const onPopState = () => setActiveTab(tabFromLocation());
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
+  // Tampilkan tombol "kembali ke atas" setelah pengguna menggulir cukup jauh
   useEffect(() => {
-    document.body.style.overflow = selectedAlbum || selectedGuide ? "hidden" : "";
+    const onScroll = () => setShowBackTop(window.scrollY > 640);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const modalOpen = Boolean(selectedAlbum || selectedGuide);
+
+  useEffect(() => {
+    document.body.style.overflow = modalOpen || mobileMenu ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [selectedAlbum, selectedGuide]);
+  }, [modalOpen, mobileMenu]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -170,6 +210,15 @@ function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   });
+
+  // Tutup menu mobile otomatis ketika viewport melebar ke ukuran desktop
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth > 1100) setMobileMenu(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -190,6 +239,8 @@ function App() {
       else window.scrollTo({ top: 0, behavior: "smooth" });
     }, 20);
   };
+
+  const toggleTheme = () => setTheme(theme === "light" ? "dark" : "light");
 
   const openAlbum = (album) => { setSelectedAlbum(album); setSlide(0); };
   const changeSlide = (direction) => {
@@ -226,9 +277,9 @@ function App() {
             <img src="/gudang/logo/pmr-logo.webp" alt="Logo PMR Wira" />
             <span className="brand-copy"><strong>PMR WIRA</strong><small>SMKN 4 BANJARMASIN</small></span>
           </button>
-          <nav className={`desktop-nav ${mobileMenu ? "is-open" : ""}`} aria-label="Navigasi utama">
-            {[{ id: "beranda", label: "Beranda" }, { id: "profil", label: "Profil" }, { id: "uks", label: "Ruang UKS & Obat" }, { id: "edukasi", label: "Edukasi P3K" }, { id: "galeri", label: "Galeri" }, { id: "kontak", label: "Kontak" }, { id: "admin", label: "Portal Admin" }].map((item) => (
-              <button key={item.id} className={activeTab === item.id ? "active" : ""} onClick={() => goTo(item.id)}>{item.label}</button>
+          <nav className="desktop-nav" aria-label="Navigasi utama">
+            {NAV_ITEMS.map((item) => (
+              <button key={item.id} className={activeTab === item.id ? "active" : ""} onClick={() => goTo(item.id)} aria-current={activeTab === item.id ? "page" : undefined}>{item.label}</button>
             ))}
           </nav>
           <div className="header-actions">
@@ -236,20 +287,39 @@ function App() {
               <ShieldCheck size={17} />
               <span>Admin</span>
             </button>
-            <button className="theme-button" onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={theme === "light" ? "Aktifkan mode gelap" : "Aktifkan mode terang"}>
+            <button className="theme-button" onClick={toggleTheme} aria-label={theme === "light" ? "Aktifkan mode gelap" : "Aktifkan mode terang"}>
               {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
             </button>
-            <button className="menu-button" onClick={() => setMobileMenu(!mobileMenu)} aria-label="Buka menu" aria-expanded={mobileMenu}>{mobileMenu ? <X size={20} /> : <Menu size={20} />}</button>
+            <button
+              id="menu-button"
+              className={`menu-button ${mobileMenu ? "is-active" : ""}`}
+              onClick={() => setMobileMenu(!mobileMenu)}
+              aria-label={mobileMenu ? "Tutup menu navigasi" : "Buka menu navigasi"}
+              aria-expanded={mobileMenu}
+              aria-controls="mobile-drawer"
+            >
+              <span className="menu-lines" aria-hidden="true"><i /><i /><i /></span>
+            </button>
           </div>
         </div>
       </header>
 
+      <MobileDrawer
+        open={mobileMenu}
+        activeTab={activeTab}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onNavigate={goTo}
+        onClose={() => setMobileMenu(false)}
+      />
+
       <main id="main-content">
         {activeTab === "beranda" && <Home content={content} goTo={goTo} onGuide={() => goTo("edukasi")} />}
         {activeTab === "profil" && <Profile content={content} goTo={goTo} />}
+        {activeTab === "sejarah" && <History content={content} goTo={goTo} />}
         {activeTab === "edukasi" && <Education content={content} onGuide={setSelectedGuide} />}
         {activeTab === "galeri" && <Gallery albums={filteredGallery} categories={categories} search={gallerySearch} filter={galleryFilter} setSearch={setGallerySearch} setFilter={setGalleryFilter} onOpen={openAlbum} />}
-        {activeTab === "kontak" && <Contact content={content} showToast={showToast} />}
+        {activeTab === "kontak" && <Contact content={content} goTo={goTo} />}
         {activeTab === "uks" && <UksServicePage content={content} goTo={goTo} />}
         {activeTab === "admin" && (
           <AdminPanel
@@ -278,13 +348,14 @@ function App() {
               <span className="sitemap-title">Jelajahi</span>
               <button onClick={() => goTo("beranda")}>Beranda</button>
               <button onClick={() => goTo("profil")}>Profil &amp; Struktur</button>
+              <button onClick={() => goTo("sejarah")}>Sejarah &amp; Pendiri</button>
               <button onClick={() => goTo("uks")}>Ruang UKS &amp; Obat</button>
               <button onClick={() => goTo("edukasi")}>Edukasi P3K</button>
             </div>
             <div className="sitemap-col">
               <span className="sitemap-title">Konten</span>
               <button onClick={() => goTo("galeri")}>Galeri Kegiatan</button>
-              <button onClick={() => goTo("kontak")}>Kontak &amp; Daftar</button>
+              <button onClick={() => goTo("kontak")}>Kontak Sekretariat</button>
               <button onClick={() => goTo("profil", "member")}>Struktur Organisasi</button>
               <button onClick={() => goTo("edukasi")}>Panduan Pertolongan</button>
             </div>
@@ -292,7 +363,7 @@ function App() {
               <span className="sitemap-title">Informasi</span>
               <a href="https://wa.me/6283191735329" target="_blank" rel="noreferrer">WhatsApp Sekretariat</a>
               <a href="https://www.instagram.com/pmrskenpatbjm" target="_blank" rel="noreferrer">Instagram @pmrskenpatbjm</a>
-              <button onClick={() => goTo("kontak")}>Kirim Pesan Singkat</button>
+              <button onClick={() => goTo("kontak")}>Hubungi Sekretariat</button>
               <button onClick={() => goTo("admin")}>Portal Admin</button>
             </div>
             <div className="sitemap-col">
@@ -313,15 +384,110 @@ function App() {
         </div>
       </footer>
 
-      <nav className="bottom-nav" aria-label="Navigasi mobile">
-        {[{ id: "beranda", label: "Beranda", icon: "users" }, { id: "profil", label: "Profil", icon: "user-round" }, { id: "uks", label: "Ruang UKS", icon: "heart-pulse" }, { id: "edukasi", label: "P3K", icon: "shield-check" }, { id: "galeri", label: "Galeri", icon: "award" }, { id: "kontak", label: "Kontak", icon: "megaphone" }, { id: "admin", label: "Admin", icon: "crown" }].map((item) => (
-          <button key={item.id} className={activeTab === item.id ? "active" : ""} onClick={() => goTo(item.id)}><Icon name={item.icon} size={19} /><span>{item.label}</span></button>
-        ))}
-      </nav>
-
       {selectedAlbum && <AlbumModal album={selectedAlbum} slide={slide} onClose={() => setSelectedAlbum(null)} onPrev={() => changeSlide(-1)} onNext={() => changeSlide(1)} onSelect={setSlide} />}
       {selectedGuide && <GuideModal guide={selectedGuide} onClose={() => setSelectedGuide(null)} />}
       {toast && <div className={`toast toast-${toast.type}`} role="alert"><span>{toast.type === "success" ? <CircleCheck size={18} /> : <CircleAlert size={18} />}</span>{toast.message}</div>}
+
+      <button
+        className={`back-to-top ${showBackTop ? "show" : ""}`}
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Kembali ke atas halaman"
+        title="Kembali ke atas"
+        tabIndex={showBackTop ? 0 : -1}
+      >
+        <ArrowUp size={18} />
+      </button>
+    </div>
+  );
+}
+
+/* =========================================================
+   MOBILE DRAWER / HAMBURGER MENU
+========================================================= */
+function MobileDrawer({ open, activeTab, theme, onToggleTheme, onNavigate, onClose }) {
+  const closeRef = useRef(null);
+  const wasOpenRef = useRef(false);
+
+  // Pengelolaan fokus: saat drawer terbuka, pindahkan fokus ke tombol tutup;
+  // saat tertutup, kembalikan fokus ke tombol hamburger agar navigasi keyboard tetap nyaman.
+  useEffect(() => {
+    if (open) {
+      wasOpenRef.current = true;
+      closeRef.current?.focus({ preventScroll: true });
+    } else if (wasOpenRef.current) {
+      wasOpenRef.current = false;
+      document.getElementById("menu-button")?.focus({ preventScroll: true });
+    }
+  }, [open]);
+
+  return (
+    <div className={`drawer-root ${open ? "is-open" : ""}`} aria-hidden={!open}>
+      <div className="drawer-backdrop" onClick={onClose} />
+      <aside className="mobile-drawer" id="mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu navigasi" inert={!open}>
+        <div className="drawer-head">
+          <div className="drawer-brand">
+            <img src="/gudang/logo/pmr-logo.webp" alt="" />
+            <span>
+              <strong>PMR WIRA</strong>
+              <small>SMKN 4 Banjarmasin</small>
+            </span>
+          </div>
+          <button className="drawer-close" onClick={onClose} aria-label="Tutup menu" ref={closeRef}>
+            <X size={19} />
+          </button>
+        </div>
+
+        <div className="drawer-scroll">
+          <span className="drawer-section-label">Menu Utama</span>
+          <nav className="drawer-nav" aria-label="Navigasi mobile">
+            {NAV_ITEMS.map((item, index) => (
+              <button
+                key={item.id}
+                className={`drawer-link ${activeTab === item.id ? "active" : ""}`}
+                onClick={() => onNavigate(item.id)}
+                style={{ transitionDelay: open ? `${40 + index * 30}ms` : "0ms" }}
+                aria-current={activeTab === item.id ? "page" : undefined}
+              >
+                <span className="drawer-link-icon"><Icon name={item.icon} size={19} /></span>
+                <span className="drawer-link-text">
+                  <strong>{item.label}</strong>
+                  <small>{item.desc}</small>
+                </span>
+                <ChevronRight size={16} className="drawer-link-arrow" />
+              </button>
+            ))}
+          </nav>
+
+          <span className="drawer-section-label">Lainnya</span>
+          <div className="drawer-extras">
+            <button className={`drawer-extra-card ${activeTab === "admin" ? "active" : ""}`} onClick={() => onNavigate("admin")}>
+              <span className="drawer-extra-icon extra-red"><ShieldCheck size={18} /></span>
+              <span><strong>Portal Admin</strong><small>Kelola konten situs</small></span>
+              <ChevronRight size={15} />
+            </button>
+            <button className="drawer-extra-card" onClick={onToggleTheme}>
+              <span className="drawer-extra-icon extra-amber">{theme === "light" ? <Moon size={18} /> : <Sun size={18} />}</span>
+              <span><strong>{theme === "light" ? "Mode Gelap" : "Mode Terang"}</strong><small>Ganti tampilan situs</small></span>
+              <span className={`drawer-switch ${theme === "dark" ? "on" : ""}`} aria-hidden="true"><i /></span>
+            </button>
+          </div>
+
+          <div className="drawer-emergency">
+            <CircleAlert size={17} />
+            <div>
+              <strong>Keadaan darurat?</strong>
+              <span>Hubungi layanan medis <b>119</b>, lalu kabari petugas UKS sekolah.</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="drawer-foot">
+          <a href="https://wa.me/6283191735329" target="_blank" rel="noreferrer" aria-label="WhatsApp"><MessageCircle size={18} /></a>
+          <a href="https://www.instagram.com/pmrskenpatbjm" target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={18} /></a>
+          <a href="mailto:pmr@smkn4bjm.sch.id" aria-label="Email"><Mail size={18} /></a>
+          <span className="drawer-foot-note">Humanis · Peduli · Tanggap</span>
+        </div>
+      </aside>
     </div>
   );
 }
@@ -363,9 +529,11 @@ function formatRosterForWhatsApp(roster, viewType) {
 }
 
 function PublicRosterWidget({ roster }) {
-  if (!roster || roster.is_published === false) return null;
+  // Hooks harus selalu dipanggil (fix white/blank screen saat publish/unpublish jadwal)
   const [activeView, setActiveView] = useState("uks"); // 'uks' or 'lapangan'
   const [modalOpen, setModalOpen] = useState(false);
+
+  if (!roster || roster.is_published === false) return null;
 
   const scheduleList = activeView === "uks" ? (roster.uks_schedule || []) : (roster.lapangan_schedule || []);
 
@@ -392,7 +560,7 @@ function PublicRosterWidget({ roster }) {
           <div>
             <span className="eyebrow eyebrow-light"><Sparkles size={14} /> JADWAL TUGAS RESMI · {roster.periode || "2026/2027"}</span>
             <h3><HeartPulse size={24} /> Jadwal Jaga UKS & Piket Lapangan</h3>
-            <p style={{ color: "#ccc", fontSize: "13px", marginTop: "4px" }}>{roster.keterangan}</p>
+            <p className="rpc-keterangan">{roster.keterangan}</p>
           </div>
           <div className="rpc-subtabs">
             <button className={`rpc-subtab ${activeView === "uks" ? "active" : ""}`} onClick={() => setActiveView("uks")}>
@@ -476,17 +644,17 @@ function PublicRosterModal({ roster, onClose }) {
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-modal modal-lg" role="dialog">
+      <div className="admin-modal modal-lg modal-card" role="dialog" aria-modal="true" aria-label="Jadwal lengkap jaga UKS dan piket lapangan">
         <div className="modal-head">
           <div>
             <span className="eyebrow">JADWAL ADIL PMR WIRA · {roster.bulan_label}</span>
             <h2>Daftar Lengkap Shift Jaga UKS & Piket Lapangan</h2>
           </div>
-          <button className="close-button" onClick={onClose}><X size={20} /></button>
+          <button className="close-button" onClick={onClose} aria-label="Tutup"><X size={20} /></button>
         </div>
         <div className="modal-body-form">
-          <p style={{ color: "var(--muted)", fontSize: "13px" }}>{roster.keterangan}</p>
-          
+          <p className="modal-muted">{roster.keterangan}</p>
+
           <div className="rss-tabs" style={{ marginBottom: 0 }}>
             <button className={`rss-tab ${tab === "uks" ? "active" : ""}`} onClick={() => setTab("uks")}>
               📍 Penjagaan Ruang UKS (Senin–Jumat)
@@ -516,10 +684,10 @@ function PublicRosterModal({ roster, onClose }) {
             </div>
           )}
 
-          <div style={{ maxHeight: "50vh", overflowY: "auto", display: "grid", gap: "10px", paddingRight: "4px" }}>
+          <div className="modal-scroll-area">
             {tab !== "fairness" ? (
               (tab === "uks" ? roster.uks_schedule : roster.lapangan_schedule)?.map((shift, sIdx) => (
-                <div className="rss-row" key={sIdx} style={{ background: "var(--paper)" }}>
+                <div className="rss-row" key={sIdx}>
                   <div className="rss-date">
                     <strong>{shift.tanggal}</strong>
                     <span className="tag">{shift.hari}</span>
@@ -539,16 +707,19 @@ function PublicRosterModal({ roster, onClose }) {
             ) : (
               <div style={{ display: "grid", gap: "14px" }}>
                 <div className="fair-badge" style={{ alignSelf: "start" }}>
-                  <Check size={16} /> DISTRIBUSI SECARA ALGORITMA TERBUKTI 100% ADIL (Selisih frekuensi antar anggota $\le 1$)
+                  <Check size={16} /> DISTRIBUSI SECARA ALGORITMA TERBUKTI 100% ADIL (Selisih frekuensi antar anggota ≤ 1)
                 </div>
-                <p style={{ fontSize: "13px", color: "var(--muted)" }}>Algoritma Fair Shuffling kami mendistribusikan shift agar setiap anggota mendapatkan jumlah giliran yang seimbang dalam sebulan, tanpa jadwal berturut-turut pada hari berikutnya dan tanpa bentrok hari Senin antara UKS dan Lapangan.</p>
+                <p className="modal-muted">Algoritma Fair Shuffling kami mendistribusikan shift agar setiap anggota mendapatkan jumlah giliran yang seimbang dalam sebulan, tanpa jadwal berturut-turut pada hari berikutnya dan tanpa bentrok hari Senin antara UKS dan Lapangan.</p>
                 <div className="audit-chips">
                   {Object.entries(roster.summary_counts || {}).map(([nama, c]) => (
-                    <div className="audit-chip" key={nama} style={{ background: "var(--card)" }}>
+                    <div className="audit-chip" key={nama}>
                       <strong>{nama}</strong>
                       <span>UKS: {c.uks} · Lapangan: {c.lapangan} ➔ <b>Total: {c.total} shift</b></span>
                     </div>
                   ))}
+                  {!Object.keys(roster.summary_counts || {}).length && (
+                    <p className="modal-muted">Statistik keadilan akan muncul setelah jadwal digenerate dari Portal Admin.</p>
+                  )}
                 </div>
               </div>
             )}
@@ -709,7 +880,7 @@ function UksServicePage({ content, goTo }) {
       {/* Bottom CTA */}
       <div className="inline-cta" style={{ marginTop: "60px" }}>
         <div>
-          <strong>Butuh konsultasi lebih lanjut atau punya pertanyaan?</strong>
+          <strong>Butuh bantuan atau ada yang ingin ditanyakan?</strong>
           <span>Hubungi tim sekretariat PMR Wira & Pembina UKS SMKN 4 Banjarmasin.</span>
         </div>
         <button className="button button-primary" onClick={() => goTo("kontak")}>
@@ -728,8 +899,11 @@ function Home({ content, goTo, onGuide }) {
           <div className="eyebrow"><span className="eyebrow-dot" /> EKSTRAKURIKULER KEMANUSIAAN · 2026/2027</div>
           <h1>Siap.<br /><em>Tanggap.</em><br />Selamatkan.</h1>
           <p className="hero-lede">Membentuk generasi <strong>humanis</strong> yang peduli, terampil, dan siap beraksi untuk kemanusiaan di sekolah maupun masyarakat.</p>
-          <div className="hero-actions"><button className="button button-primary" onClick={() => goTo("kontak")}><HeartHandshake size={18} /> Jadi relawan <ArrowRight size={17} /></button><button className="button button-ghost" onClick={onGuide}><Play size={16} fill="currentColor" /> Mulai belajar P3K</button></div>
-          <div className="hero-note"><span className="pulse-dot" /> Pendaftaran anggota dibuka setiap awal semester genap</div>
+          <div className="hero-actions">
+            <button className="button button-primary" onClick={() => goTo("profil")}><Users size={18} /> Kenali PMR Wira <ArrowRight size={17} /></button>
+            <button className="button button-ghost" onClick={onGuide}><Play size={16} fill="currentColor" /> Mulai belajar P3K</button>
+          </div>
+          <div className="hero-note"><span className="pulse-dot" /> Latihan rutin setiap Kamis, 15.00–17.00 WITA — terbuka untuk seluruh anggota</div>
         </div>
         <div className="hero-art" aria-label="Ilustrasi semangat kemanusiaan">
           <div className="art-circle art-circle-back" /><div className="art-circle art-circle-mid" /><div className="art-cross">+</div>
@@ -753,7 +927,7 @@ function Home({ content, goTo, onGuide }) {
       <div className="split-heading"><SectionHeading kicker="Agenda" title="Waktu untuk bergerak" description="Simpan agenda berikut dan hadir bersama kami." /><button className="button button-dark" onClick={() => goTo("kontak")}>Tanya sekretariat <MessageCircle size={16} /></button></div>
       <div className="event-grid">{content.events.map((event) => <EventCard key={event.id} event={event} />)}</div>
 
-      <div className="home-cta"><div><span className="eyebrow eyebrow-light"><Sparkles size={14} /> PANGGILAN KEMANUSIAAN</span><h2>Hal kecil yang kamu lakukan<br /><em>bisa berarti besar.</em></h2><p>Mulai dari belajar P3K, hadir di latihan, dan berani peduli pada sekitar.</p></div><button className="button button-yellow" onClick={() => goTo("kontak")}>Gabung PMR <ArrowRight size={17} /></button></div>
+      <div className="home-cta"><div><span className="eyebrow eyebrow-light"><Sparkles size={14} /> PANGGILAN KEMANUSIAAN</span><h2>Hal kecil yang kamu lakukan<br /><em>bisa berarti besar.</em></h2><p>Mulai dari belajar P3K, hadir di latihan, dan berani peduli pada sekitar.</p></div><button className="button button-yellow" onClick={() => goTo("sejarah")}>Kenali sejarah kami <ArrowRight size={17} /></button></div>
     </section>
   </>;
 }
@@ -763,51 +937,15 @@ function Profile({ content, goTo }) {
   return <section className="page-section container profile-page">
     <SectionHeading kicker="Tentang PMR Wira" title="Satu tim, satu kepedulian" description="PMR Wira SMKN 4 Banjarmasin adalah ruang belajar untuk menjadi pribadi yang berkarakter, sigap, dan bermanfaat." />
 
-    {/* NEW: DETAILED ABOUT / CREATORS SECTION per user request */}
-    <div className="about-detailed-section">
-      <div className="about-intro">
-        <h3>Sejarah &amp; Pendiri PMR Wira SMKN 4 Banjarmasin</h3>
-        <p>
-          PMR Wira (Palang Merah Remaja Wira) SMKN 4 Banjarmasin didirikan sebagai wadah ekstrakurikuler kemanusiaan resmi sekolah pada tahun 2010. 
-          Organisasi ini lahir dari inisiatif guru pembina dan siswa yang peduli terhadap kesehatan sekolah serta kesiapsiagaan bencana di lingkungan SMK.
-        </p>
-      </div>
-
-      <div className="about-creators-grid">
-        <div className="creator-card">
-          <div className="creator-head">
-            <GraduationCap size={20} />
-            <strong>Pembina &amp; Pendiri</strong>
-          </div>
-          <p><strong>Winda Hairani, S.Pd.</strong> — Pembina PMR &amp; UKS. Beliau adalah guru yang memprakarsai berdirinya PMR Wira dan terus membimbing generasi relawan hingga saat ini.</p>
-          <small>Penanggung jawab kurikulum &amp; pelatihan P3K sejak awal.</small>
-        </div>
-
-        <div className="creator-card">
-          <div className="creator-head">
-            <Users size={20} />
-            <strong>Kepengurusan Perdana</strong>
-          </div>
-          <p>Didukung oleh Wakasek Kesiswaan (Eka Lisdyawati, M.Pd.) serta siswa-siswi angkatan pertama yang meletakkan fondasi semangat “Humanis • Peduli • Tanggap”.</p>
-          <small>Program kerja awal: Pelatihan dasar P3K, piket UKS rutin, dan bakti sosial tahunan.</small>
-        </div>
-
-        <div className="creator-card">
-          <div className="creator-head">
-            <Sparkles size={20} />
-            <strong>Pengembang Website 2026</strong>
-          </div>
-          <p>Proyek digital ini dikembangkan oleh tim inti PMR Wira periode 2026/2027 bekerja sama dengan siswa RPL/TKJ yang memiliki minat teknologi.</p>
-          <ul>
-            <li>Desain &amp; Arsitektur: Tim Sekretariat PMR</li>
-            <li>Frontend (React 19 + Vite): Pengurus &amp; anggota divisi PSDM</li>
-            <li>Backend &amp; Deploy (Cloudflare + Neon): Siswa teknik informatika</li>
-            <li>Konten &amp; Foto: Seluruh anggota PMR Wira</li>
-          </ul>
-          <small>Tujuan: Memberikan akses informasi publik yang modern, cepat, dan mudah diakses di semua perangkat.</small>
-        </div>
-      </div>
-    </div>
+    {/* Tautan cepat ke halaman Sejarah & Pendiri */}
+    <button className="profile-history-link" onClick={() => goTo("sejarah")}>
+      <span className="phl-icon"><Landmark size={20} /></span>
+      <span className="phl-text">
+        <strong>Baru: Halaman Sejarah & Para Pendiri</strong>
+        <small>Kenali perjalanan PMR Wira sejak 2010 dan orang-orang di balik berdirinya.</small>
+      </span>
+      <span className="phl-cta">Buka halaman <ChevronRight size={16} /></span>
+    </button>
 
     <div className="about-grid"><div className="quote-panel"><Quote size={42} /><blockquote>“Kemanusiaan tidak mengenal batas. Di sini kita belajar menjadi pahlawan kecil bagi sesama.”</blockquote><span>— Nilai yang kami bawa</span></div><div className="vision-card"><div className="mini-label"><Eye size={16} /> VISI KAMI</div><h3>Berkarakter, peduli, terampil, dan siap berperan.</h3><p>Mewujudkan anggota Palang Merah Remaja yang aktif di lingkungan sekolah maupun masyarakat.</p></div></div>
     <div className="mission-grid"><div><SectionHeading kicker="Cara kami bertumbuh" title="Misi" /></div><ul className="mission-list">{["Menanamkan nilai kepedulian, kemanusiaan, dan solidaritas.", "Meningkatkan pengetahuan kepalangmerahan dan keterampilan P3K.", "Membentuk sikap disiplin, tanggung jawab, dan kerja sama.", "Mendukung sekolah yang sehat, aman, dan siaga.", "Berperan aktif dalam kegiatan sosial di masyarakat."].map((item, index) => <li key={item}><span>0{index + 1}</span>{item}</li>)}</ul></div>
@@ -817,10 +955,182 @@ function Profile({ content, goTo }) {
     <div className="leaders-grid">{(org.leaders || []).map((person) => <PersonCard key={person.role} person={person} />)}</div>
     <h3 className="division-title">Koordinator divisi</h3><div className="division-grid">{(org.divisions || []).map((division) => <DivisionCard key={division.divisi} division={division} />)}</div>
 
-    <div className="faq-section"><SectionHeading kicker="Masih penasaran?" title="Pertanyaan umum" /> <FAQ items={content.faq} /></div>
-
-    <div className="inline-cta"><div><strong>Ingin terlibat lebih jauh?</strong><span>Temukan cara bergabung dengan PMR Wira.</span></div><button className="button button-primary" onClick={() => goTo("kontak")}>Hubungi kami <ArrowRight size={16} /></button></div>
+    <div className="inline-cta"><div><strong>Ingin mengenal perjalanan kami lebih jauh?</strong><span>Baca kisah berdirinya PMR Wira dan para pendirinya di halaman khusus.</span></div><button className="button button-primary" onClick={() => goTo("sejarah")}>Buka Halaman Sejarah <ArrowRight size={16} /></button></div>
   </section>;
+}
+
+/* =========================================================
+   HALAMAN SEJARAH & PARA PENDIRI (tab khusus, bukan di awal)
+========================================================= */
+const HISTORY_TIMELINE = [
+  {
+    year: "1950",
+    icon: "landmark",
+    title: "Akar gerakan: PMI & Palang Merah Remaja",
+    text: "Palang Merah Remaja (PMR) lahir pada 1 Maret 1950 sebagai bagian dari Palang Merah Indonesia — menanamkan nilai kemanusiaan kepada generasi muda sejak dini.",
+    tone: "red",
+  },
+  {
+    year: "2010",
+    icon: "flag",
+    title: "PMR Wira SMKN 4 Banjarmasin resmi berdiri",
+    text: "Diprakarsai guru pembina dan siswa yang peduli kesehatan sekolah serta kesiapsiagaan bencana, PMR Wira menjadi ekstrakurikuler kemanusiaan resmi sekolah.",
+    tone: "yellow",
+  },
+  {
+    year: "Tradisi",
+    icon: "heart-pulse",
+    title: "Latihan rutin, piket UKS & aksi sosial",
+    text: "Latihan keterampilan setiap Kamis, penjagaan Ruang UKS Senin–Jumat, piket lapangan upacara, hingga bakti sosial tahunan menjadi tradisi yang dijaga lintas angkatan.",
+    tone: "green",
+  },
+  {
+    year: "2026",
+    icon: "sparkles",
+    title: "Memasuki era digital",
+    text: "Website resmi, jadwal jaga digital, dan portal informasi dikembangkan oleh tim inti PMR periode 2026/2027 bersama siswa RPL/TKJ agar informasi mudah diakses semua orang.",
+    tone: "blue",
+  },
+];
+
+const HISTORY_FOUNDERS = [
+  {
+    icon: "graduation-cap",
+    role: "Pendiri & Pembina",
+    name: "Winda Hairani, S.Pd.",
+    text: "Guru yang memprakarsai berdirinya PMR Wira SMKN 4 Banjarmasin dan terus membimbing generasi relawan hingga hari ini.",
+    note: "Penanggung jawab kurikulum & pelatihan P3K sejak awal berdiri.",
+  },
+  {
+    icon: "users",
+    role: "Pendukung Pendirian",
+    name: "Eka Lisdyawati, M.Pd. & Angkatan Perdana",
+    text: "Wakasek Kesiswaan bersama siswa-siswi angkatan pertama yang meletakkan fondasi semangat “Humanis • Peduli • Tanggap”.",
+    note: "Program kerja awal: pelatihan dasar P3K, piket UKS rutin, dan bakti sosial tahunan.",
+  },
+  {
+    icon: "heart-handshake",
+    role: "Penerus Lintas Angkatan",
+    name: "Kepengurusan dari Masa ke Masa",
+    text: "Setiap periode kepengurusan melanjutkan estafet kepemimpinan — menjaga latihan rutin, piket UKS, dan aksi sosial tetap hidup.",
+    note: "Periode aktif saat ini: 2026/2027 di bawah kepemimpinan Ketua Adilla Hafiza.",
+  },
+  {
+    icon: "sparkles",
+    role: "Pengembang Digital 2026",
+    name: "Tim Inti PMR & Siswa RPL/TKJ",
+    text: "Website resmi ini dirancang dan dibangun oleh tim inti PMR Wira periode 2026/2027 bersama siswa yang berminat di bidang teknologi.",
+    note: "Tujuan: informasi publik yang modern, cepat, dan mudah diakses di semua perangkat.",
+  },
+];
+
+function History({ content, goTo }) {
+  const { org } = content;
+  return (
+    <section className="page-section container history-page">
+      <SectionHeading
+        kicker="Sejarah & Para Pendiri"
+        title="Lahir dari kepedulian."
+        description="Halaman khusus perjalanan PMR Wira SMKN 4 Banjarmasin — dari gagasan sederhana menjadi gerakan kemanusiaan yang hidup di sekolah."
+      />
+
+      {/* Hero sejarah */}
+      <div className="history-hero">
+        <div className="hh-copy">
+          <span className="history-year-pill"><HistoryIcon size={15} /> SEJAK 2010</span>
+          <h2>PMR Wira <em>SMKN 4 Banjarmasin</em></h2>
+          <p>
+            Palang Merah Remaja (PMR) tingkat Wira adalah wadah pembinaan remaja oleh PMI untuk siswa SMA/sederajat.
+            Di SMKN 4 Banjarmasin, PMR Wira tumbuh menjadi rumah bagi siswa yang ingin belajar pertolongan pertama,
+            hidup sehat, kesiapsiagaan, dan kepemimpinan yang berpihak pada kemanusiaan.
+          </p>
+          <div className="hh-actions">
+            <button className="button button-yellow" onClick={() => goTo("profil", "member")}>
+              Lihat Struktur Saat Ini <ArrowRight size={16} />
+            </button>
+            <button className="button button-ghost-dark" onClick={() => goTo("kontak")}>
+              Hubungi Sekretariat
+            </button>
+          </div>
+        </div>
+        <div className="hh-art" aria-hidden="true">
+          <div className="hh-ring hh-ring-1" />
+          <div className="hh-ring hh-ring-2" />
+          <img src="/gudang/logo/pmr-logo.webp" alt="" />
+          <span className="hh-cross">+</span>
+        </div>
+      </div>
+
+      {/* Tingkatan PMR */}
+      <div className="history-levels">
+        <div className="history-level-card">
+          <span className="level-badge level-mula">MULA</span>
+          <strong>PMR Mula</strong>
+          <p>Tingkat sekolah dasar (SD) — pengenalan nilai kemanusiaan & kebersihan.</p>
+        </div>
+        <div className="history-level-card">
+          <span className="level-badge level-madya">MADYA</span>
+          <strong>PMR Madya</strong>
+          <p>Tingkat sekolah menengah pertama (SMP) — keterampilan dasar pertolongan pertama.</p>
+        </div>
+        <div className="history-level-card history-level-active">
+          <span className="level-badge level-wira">WIRA · KAMI</span>
+          <strong>PMR Wira</strong>
+          <p>Tingkat SMA/SMK sederajat — keterampilan lanjutan, kepemimpinan & aksi nyata.</p>
+        </div>
+      </div>
+
+      {/* Lini masa */}
+      <div className="section-anchor" id="linimasa">
+        <SectionHeading kicker="Lini masa" title="Perjalanan kami" description="Tonggak-tonggak penting yang membentuk PMR Wira hingga hari ini." />
+      </div>
+      <ol className="timeline">
+        {HISTORY_TIMELINE.map((item) => (
+          <li className={`timeline-item tone-${item.tone}`} key={item.year}>
+            <span className="timeline-year">{item.year}</span>
+            <span className="timeline-icon"><Icon name={item.icon} size={18} /></span>
+            <div className="timeline-card">
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      {/* Para pendiri */}
+      <div className="section-anchor" id="pendiri">
+        <SectionHeading kicker="Orang-orang di baliknya" title="Pendiri & penerus perjuangan" description="PMR Wira berdiri karena keberanian mereka memulai — dan terus hidup karena kesetiaan para penerusnya." />
+      </div>
+      <div className="founders-grid">
+        {HISTORY_FOUNDERS.map((founder) => (
+          <article className="founder-card" key={founder.name}>
+            <div className="founder-head">
+              <span className="founder-icon"><Icon name={founder.icon} size={21} /></span>
+              <span className="founder-role">{founder.role}</span>
+            </div>
+            <h3>{founder.name}</h3>
+            <p>{founder.text}</p>
+            <small>{founder.note}</small>
+          </article>
+        ))}
+      </div>
+
+      {/* Penutup */}
+      <div className="history-closing">
+        <Quote size={34} />
+        <blockquote>“Siamo tutti fratelli — kita semua bersaudara.”</blockquote>
+        <span>Semboyan gerakan Palang Merah yang kami jaga di setiap kegiatan.</span>
+        <div className="history-closing-actions">
+          <button className="button button-primary" onClick={() => goTo("profil")}>
+            Kenali Profil & Struktur <ArrowRight size={16} />
+          </button>
+          <button className="button button-ghost" onClick={() => goTo("galeri")}>
+            Lihat Dokumentasi Kegiatan
+          </button>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Education({ content, onGuide }) {
@@ -835,47 +1145,17 @@ function Education({ content, onGuide }) {
 function Gallery({ albums, categories, search, filter, setSearch, setFilter, onOpen }) {
   return <section className="page-section container gallery-page"><SectionHeading kicker="Momen PMR Wira" title="Galeri kegiatan" description="Simpan cerita, rayakan proses, dan lihat aksi kami." />
     <div className="gallery-toolbar"><label className="search-field"><Search size={18} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari album kegiatan..." aria-label="Cari album kegiatan" />{search && <button onClick={() => setSearch("")} aria-label="Hapus pencarian"><X size={16} /></button>}</label><div className="filter-list" role="tablist" aria-label="Filter galeri">{categories.map((category) => <button key={category} className={filter === category ? "active" : ""} onClick={() => setFilter(category)}>{category}</button>)}</div></div>
-    {albums.length ? <div className="gallery-grid">{albums.map((album, index) => <button className={`gallery-card gallery-card-${index % 4}`} key={album.id} onClick={() => onOpen(album)}><img src={album.cover} alt={album.title} loading="lazy" /><span className="gallery-shade" /><span className="gallery-info"><small>{album.category || "Kegiatan"} · {album.date}</small><strong>{album.title}</strong><span className="gallery-open">Lihat album <ArrowRight size={14} /></span></span></button>)}</div> : <div className="empty-state"><Search size={30} /><h3>Album tidak ditemukan</h3><p>Coba gunakan kata kunci atau filter lain.</p></div>}
+    {albums.length ? <div className="gallery-grid">{albums.map((album, index) => <button className={`gallery-card gallery-card-${index % 4}`} key={album.id} onClick={() => onOpen(album)}><img src={album.cover} alt={album.title} loading="lazy" decoding="async" /><span className="gallery-shade" /><span className="gallery-info"><small>{album.category || "Kegiatan"} · {album.date}</small><strong>{album.title}</strong><span className="gallery-open">Lihat album <ArrowRight size={14} /></span></span></button>)}</div> : <div className="empty-state"><Search size={30} /><h3>Album tidak ditemukan</h3><p>Coba gunakan kata kunci atau filter lain.</p></div>}
   </section>;
 }
 
-function Contact({ content, showToast }) {
-  const [agreed, setAgreed] = useState(false);
-  const [shortMsg, setShortMsg] = useState({ name: "", message: "" });
-  const [sendingWA, setSendingWA] = useState(false);
+function Contact({ content, goTo }) {
   const { sekretariat, bergabung } = content.contact || {};
-
-  const googleFormUrl = bergabung?.google_form_url || "https://forms.gle/example-google-form-link";
-  const waNumber = sekretariat?.whatsapp_number || sekretariat?.wa_link?.replace(/[^0-9]/g, "") || "6283191735329";
-
-  const openRegistration = () => {
-    if (!agreed) return;
-    window.open(googleFormUrl, "_blank", "noopener,noreferrer");
-    showToast("Membuka formulir pendaftaran Google Form...");
-  };
-
-  const sendToWhatsApp = (e) => {
-    e.preventDefault();
-    const name = shortMsg.name.trim();
-    const msg = shortMsg.message.trim();
-    if (!name || !msg) {
-      showToast("Nama dan pesan wajib diisi.", "error");
-      return;
-    }
-    setSendingWA(true);
-    const text = `Halo Sekretariat PMR Wira SMKN 4 Banjarmasin,%0A%0ANama: ${encodeURIComponent(name)}%0A%0APesan:%0A${encodeURIComponent(msg)}%0A%0ATerima kasih.`;
-    const url = `https://wa.me/${waNumber}?text=${text}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => {
-      setSendingWA(false);
-      setShortMsg({ name: "", message: "" });
-      showToast("Membuka WhatsApp untuk mengirim pesan ke sekretariat.");
-    }, 650);
-  };
+  const waLink = sekretariat?.wa_link || "https://wa.me/6283191735329";
 
   return (
     <section className="page-section container contact-page">
-      <SectionHeading kicker="Mari terhubung" title="Ada yang bisa kami bantu?" description="Datang, belajar, dan bertumbuh bersama PMR Wira." />
+      <SectionHeading kicker="Mari terhubung" title="Ada yang bisa kami bantu?" description="Datang, sapa, dan kenali kami lebih dekat — sekretariat PMR Wira terbuka untuk seluruh warga sekolah." />
 
       <div className="contact-grid">
         <div className="contact-info">
@@ -887,7 +1167,7 @@ function Contact({ content, showToast }) {
             <ContactLine icon="mail" text={sekretariat?.email} href={`mailto:${sekretariat?.email}`} />
             <div className="social-row">
               <a href={`https://instagram.com/${sekretariat?.instagram || ""}`} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={18} /></a>
-              <a href={sekretariat?.wa_link || `https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" aria-label="WhatsApp"><MessageCircle size={18} /></a>
+              <a href={waLink} target="_blank" rel="noreferrer" aria-label="WhatsApp"><MessageCircle size={18} /></a>
               <a href="https://youtube.com" target="_blank" rel="noreferrer" aria-label="YouTube"><Youtube size={18} /></a>
             </div>
           </div>
@@ -900,104 +1180,116 @@ function Contact({ content, showToast }) {
           </div>
         </div>
 
-        {/* SIMPLIFIED REGISTRATION: ONLY CHECKBOX + REDIRECT TO GOOGLE FORM */}
-        <div className="contact-card registration-card">
-          <span className="card-kicker">PENDAFTARAN RELAWAN</span>
-          <h3>Mulai dari satu langkah.</h3>
-          <p>{bergabung?.deskripsi || "Siap bergabung dengan PMR Wira?"}</p>
-
-          <ul>
-            {(bergabung?.persyaratan || []).map((item, idx) => (
-              <li key={idx}><Check size={15} />{item}</li>
-            ))}
-          </ul>
-
-          <div className="reg-checkbox-wrapper">
-            <label className="reg-checkbox-label">
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-              />
-              <span>Saya telah membaca dan menyetujui semua persyaratan &amp; ketentuan bergabung PMR Wira.</span>
-            </label>
-          </div>
-
-          <button
-            type="button"
-            className="button button-primary full"
-            disabled={!agreed}
-            onClick={openRegistration}
-          >
-            Daftar Sekarang <ArrowRight size={17} />
-          </button>
-
-          <small className="form-note">
-            {bergabung?.catatan || "Pendaftaran dibuka setiap awal semester genap. Formulir akan dibuka di tab baru."}
-          </small>
-        </div>
-      </div>
-
-      {/* SIMPLIFIED SHORT MESSAGE: NAME + MESSAGE → DIRECT WHATSAPP */}
-      <div className="contact-bottom">
-        <div>
-          <SectionHeading
-            kicker="Pesan Singkat"
-            title="Bicaralah langsung dengan kami"
-            description="Kirim pesan singkat via WhatsApp ke sekretariat. Tidak perlu email atau database."
-          />
-        </div>
-
-        <form className="message-form wa-direct-form" onSubmit={sendToWhatsApp}>
-          <div className="two-fields">
-            <Field
-              label="Nama lengkap"
-              value={shortMsg.name}
-              onChange={(e) => setShortMsg((c) => ({ ...c, name: e.target.value }))}
-              required
-            />
-            <div className="field">
-              <span>Nomor tujuan</span>
-              <div className="wa-target-display">
-                <MessageCircle size={15} /> {waNumber.replace(/(\d{3})(\d{4})(\d{4})/, "+$1 $2-$3")}
-              </div>
+        <div className="contact-side">
+          {/* Informasi keanggotaan (tanpa formulir pendaftaran) */}
+          <div className="contact-card join-info-card">
+            <span className="card-kicker">INFORMASI KEANGGOTAAN</span>
+            <h3>Tertarik menjadi bagian dari kami?</h3>
+            <p>{bergabung?.deskripsi}</p>
+            <ul className="join-requirements">
+              {(bergabung?.persyaratan || []).map((item, idx) => (
+                <li key={idx}><span className="jr-check"><Check size={13} /></span>{item}</li>
+              ))}
+            </ul>
+            <div className="join-note">
+              <CircleAlert size={16} />
+              <span>{bergabung?.catatan}</span>
             </div>
+            <a className="button button-wa full" href={bergabung?.link_wa || waLink} target="_blank" rel="noreferrer">
+              Tanya info via WhatsApp <MessageCircle size={16} />
+            </a>
           </div>
 
-          <label className="field full">
-            <span>Pesan / Pertanyaan</span>
-            <textarea
-              rows="5"
-              value={shortMsg.message}
-              onChange={(e) => setShortMsg((c) => ({ ...c, message: e.target.value }))}
-              required
-              placeholder="Halo, saya ingin bertanya tentang..."
-            />
-          </label>
-
-          <button
-            type="submit"
-            className="button button-wa full"
-            disabled={sendingWA || !shortMsg.name.trim() || !shortMsg.message.trim()}
-          >
-            {sendingWA ? "Membuka WhatsApp..." : <>Kirim via WhatsApp <Send size={16} /></>}
-          </button>
-          <small className="form-note">Pesan akan dibuka langsung di aplikasi WhatsApp Anda ke nomor sekretariat resmi.</small>
-        </form>
+          <div className="contact-quick-grid">
+            <a className="contact-quick-chip" href={waLink} target="_blank" rel="noreferrer">
+              <span className="cqc-icon cqc-wa"><MessageCircle size={19} /></span>
+              <strong>WhatsApp</strong>
+              <small>Balasan tercepat</small>
+            </a>
+            <a className="contact-quick-chip" href={`mailto:${sekretariat?.email || "pmr@smkn4bjm.sch.id"}`}>
+              <span className="cqc-icon cqc-mail"><Mail size={19} /></span>
+              <strong>Email</strong>
+              <small>Surat resmi</small>
+            </a>
+            <a className="contact-quick-chip" href={`https://instagram.com/${sekretariat?.instagram || "pmrskenpatbjm"}`} target="_blank" rel="noreferrer">
+              <span className="cqc-icon cqc-ig"><Instagram size={19} /></span>
+              <strong>Instagram</strong>
+              <small>@{sekretariat?.instagram || "pmrskenpatbjm"}</small>
+            </a>
+            <button className="contact-quick-chip" onClick={() => goTo("sejarah")}>
+              <span className="cqc-icon cqc-history"><Landmark size={19} /></span>
+              <strong>Sejarah</strong>
+              <small>Kenali pendiri kami</small>
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
 function SectionHeading({ kicker, title, description, action }) { return <div className="section-heading"><div><span className="eyebrow">{kicker}</span><h2>{title}</h2>{description && <p>{description}</p>}</div>{action}</div>; }
-function NewsCard({ news, featured }) { return <article className={`news-card ${featured ? "featured" : ""}`}><div className="news-image"><img src={news.image} alt="" loading="lazy" /><span>{news.category}</span></div><div className="news-body"><small>{news.date}</small><h3>{news.title}</h3><p>{news.excerpt}</p><span className="read-more">Baca selengkapnya <ArrowRight size={15} /></span></div></article>; }
+function NewsCard({ news, featured }) { return <article className={`news-card ${featured ? "featured" : ""}`}><div className="news-image"><img src={news.image} alt="" loading="lazy" decoding="async" /><span>{news.category}</span></div><div className="news-body"><small>{news.date}</small><h3>{news.title}</h3><p>{news.excerpt}</p><span className="read-more">Baca selengkapnya <ArrowRight size={15} /></span></div></article>; }
 function EventCard({ event }) { return <article className="event-card"><div className="event-date"><CalendarDays size={18} /><strong>{event.date}</strong><span>{event.time}</span></div><div className="event-detail"><span className="tag">{event.status}</span><h3>{event.title}</h3><p>{event.description}</p><small><MapPin size={14} /> {event.location}</small></div></article>; }
 function PersonCard({ person, muted }) { return <article className={`person-card ${muted ? "person-muted" : ""}`}>{person.foto ? <img src={person.foto} alt={person.nama} /> : <div className="person-avatar"><Icon name={person.icon} size={23} /></div>}<div className="person-content"><span>{person.role || person.jabatan}</span><h3>{person.nama || "Akan diumumkan"}</h3><p>{person.deskripsi}</p></div></article>; }
 function DivisionCard({ division }) { const [open, setOpen] = useState(false); return <article className={`division-card ${open ? "open" : ""}`}><button onClick={() => setOpen(!open)} aria-expanded={open}><span className="division-icon">{division.foto ? <img src={division.foto} alt={division.divisi} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"10px"}} /> : <Icon name={division.icon} size={20} />}</span><span><small>DIVISI</small><strong>{division.divisi}</strong></span><ChevronDown size={18} /></button><div className="member-list">{division.anggota?.map((member) => <span key={member}><UserRound size={13} />{member}</span>)}</div></article>; }
-function FAQ({ items }) { const [open, setOpen] = useState(0); return <div className="faq-list">{items.map((item, index) => <div className={`faq-item ${open === index ? "open" : ""}`} key={item.question}><button onClick={() => setOpen(open === index ? -1 : index)} aria-expanded={open === index}><span>{item.question}</span><ChevronDown size={18} /></button><div className="faq-answer"><p>{item.answer}</p></div></div>)}</div>; }
 function ContactLine({ icon, text, href }) { const IconComponent = icon === "map" ? MapPin : icon === "phone" ? Phone : Mail; const content = <><IconComponent size={17} /><span>{text}</span></>; return href ? <a className="contact-line" href={href}>{content}</a> : <div className="contact-line">{content}</div>; }
-function Field({ label, type = "text", value, onChange, required }) { return <label className="field"><span>{label}{required && <b>*</b>}</span><input type={type} value={value} onChange={onChange} required={required} /></label>; }
-function AlbumModal({ album, slide, onClose, onPrev, onNext, onSelect }) { return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="album-modal" role="dialog" aria-modal="true" aria-label={album.title}><div className="modal-head"><div><span className="eyebrow">{album.category || "Kegiatan"} · {album.date}</span><h2>{album.title}</h2></div><button className="close-button" onClick={onClose} aria-label="Tutup"><X size={21} /></button></div><div className="album-viewer"><img src={album.images?.[slide] || album.cover} alt={`${album.title} ${slide + 1}`} /><button className="slider-button slider-prev" onClick={onPrev} aria-label="Foto sebelumnya"><ChevronLeft /></button><button className="slider-button slider-next" onClick={onNext} aria-label="Foto berikutnya"><ChevronRight /></button></div><div className="album-dots">{album.images?.map((image, index) => <button key={image} className={slide === index ? "active" : ""} onClick={() => onSelect(index)} aria-label={`Buka foto ${index + 1}`} />)}</div><p className="modal-description">{album.description}</p></div></div>; }
-function GuideModal({ guide, onClose }) { return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="guide-modal" role="dialog" aria-modal="true" aria-label={guide.title}><div className="modal-head"><div><span className={`tag tone-label-${guide.tone}`}>{guide.tag}</span><h2>{guide.title}</h2></div><button className="close-button" onClick={onClose} aria-label="Tutup"><X size={21} /></button></div><ol className="guide-steps">{guide.steps.map((step, index) => <li key={step}><span>{index + 1}</span><p>{step}</p></li>)}</ol><div className="modal-reminder"><CircleAlert size={18} /><span>Jika kondisi memburuk, segera hubungi 119 atau fasilitas kesehatan terdekat.</span></div><button className="button button-dark full" onClick={onClose}>Saya mengerti <Check size={16} /></button></div></div>; }
+
+/* =========================================================
+   MODAL POP-UP (desain baru — fix blank screen & dark mode)
+========================================================= */
+function AlbumModal({ album, slide, onClose, onPrev, onNext, onSelect }) {
+  const total = album.images?.length || 0;
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="album-modal modal-card" role="dialog" aria-modal="true" aria-label={album.title}>
+        <div className="modal-head">
+          <div>
+            <span className="eyebrow">{album.category || "Kegiatan"} · {album.date}</span>
+            <h2>{album.title}</h2>
+          </div>
+          <button className="close-button" onClick={onClose} aria-label="Tutup"><X size={21} /></button>
+        </div>
+        <div className="album-viewer">
+          <img src={album.images?.[slide] || album.cover} alt={`${album.title} ${slide + 1}`} onError={(e) => { e.currentTarget.src = album.cover; }} />
+          {total > 1 && <>
+            <button className="slider-button slider-prev" onClick={onPrev} aria-label="Foto sebelumnya"><ChevronLeft /></button>
+            <button className="slider-button slider-next" onClick={onNext} aria-label="Foto berikutnya"><ChevronRight /></button>
+            <span className="album-counter">{slide + 1} / {total}</span>
+          </>}
+        </div>
+        {total > 1 && (
+          <div className="album-dots">
+            {album.images.map((image, index) => <button key={image} className={slide === index ? "active" : ""} onClick={() => onSelect(index)} aria-label={`Buka foto ${index + 1}`} />)}
+          </div>
+        )}
+        <p className="modal-description">{album.description}</p>
+      </div>
+    </div>
+  );
+}
+
+function GuideModal({ guide, onClose }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="guide-modal modal-card" role="dialog" aria-modal="true" aria-label={guide.title}>
+        <div className="modal-head">
+          <div>
+            <span className={`tag tone-label-${guide.tone}`}>{guide.tag}</span>
+            <h2>{guide.title}</h2>
+          </div>
+          <button className="close-button" onClick={onClose} aria-label="Tutup"><X size={21} /></button>
+        </div>
+        <div className="modal-scroll-area">
+          <ol className="guide-steps">{guide.steps.map((step, index) => <li key={step}><span>{index + 1}</span><p>{step}</p></li>)}</ol>
+        </div>
+        <div className="modal-foot">
+          <div className="modal-reminder"><CircleAlert size={18} /><span>Jika kondisi memburuk, segera hubungi 119 atau fasilitas kesehatan terdekat.</span></div>
+          <button className="button button-dark full" onClick={onClose}>Saya mengerti <Check size={16} /></button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 createRoot(document.getElementById("root")).render(<App />);

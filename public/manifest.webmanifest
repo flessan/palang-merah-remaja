@@ -1,7 +1,7 @@
 {
   "name": "PMR Wira SMKN 4 Banjarmasin",
   "short_name": "PMR Wira",
-  "description": "Situs resmi PMR Wira — Ekstrakurikuler Palang Merah Remaja SMKN 4 Banjarmasin. Humanis • Peduli • Tanggap. Pendaftaran relawan, edukasi P3K, jadwal UKS & galeri.",
+  "description": "Situs resmi PMR Wira — Ekstrakurikuler Palang Merah Remaja SMKN 4 Banjarmasin. Humanis • Peduli • Tanggap. Edukasi P3K, jadwal UKS, sejarah & galeri kegiatan.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
@@ -14,6 +14,11 @@
     { "src": "/gudang/logo/pmr-logo.webp", "sizes": "512x512", "type": "image/webp" }
   ],
   "categories": ["education", "health", "social"],
+  "shortcuts": [
+    { "name": "Beranda", "short_name": "Beranda", "url": "/?tab=beranda", "icons": [{ "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Sejarah & Pendiri", "short_name": "Sejarah", "url": "/?tab=sejarah", "icons": [{ "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Kontak Sekretariat", "short_name": "Kontak", "url": "/?tab=kontak", "icons": [{ "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ],
   "screenshots": [
     { "src": "/gudang/gallery/juara.avif", "sizes": "1280x720", "type": "image/avif", "form_factor": "wide", "label": "Galeri kegiatan PMR Wira" }
   ]

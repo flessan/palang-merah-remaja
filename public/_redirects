@@ -1,5 +1,9 @@
-# Optional clean paths for the tab-based SPA. API paths intentionally have no wildcard rule.
-/profil    /index.html   200
-/edukasi   /index.html   200
-/galeri    /index.html   200
-/kontak    /index.html   200
+# Jalur bersih opsional untuk SPA berbasis tab.
+# Dialihkan (302) ke URL kanonik ?tab= agar sesuai sitemap & logika pemilihan tab aplikasi.
+# Jalur API sengaja tidak punya aturan wildcard.
+/profil     /?tab=profil    302
+/sejarah    /?tab=sejarah   302
+/uks        /?tab=uks       302
+/edukasi    /?tab=edukasi   302
+/galeri     /?tab=galeri    302
+/kontak     /?tab=kontak    302

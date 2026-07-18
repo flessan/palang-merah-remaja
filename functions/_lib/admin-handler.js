@@ -27,18 +27,8 @@ function verifyPin(request, env) {
   return token === validPin || token === "2026" || token === "pmr2026" || token === "admin";
 }
 
-async function ensureStatusColumns(sql) {
-  try {
-    await sql`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Baru'`;
-    await sql`ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Belum Dibaca'`;
-  } catch (cause) {
-    console.warn("Could not alter status columns (may already exist or read-only)", cause);
-  }
-}
-
 async function fetchAllNeonData(sql) {
-  await ensureStatusColumns(sql);
-  const [stats, announcements, events, gallery, org, contact, guides, faq, roster, uks_info, registrations, messages] = await Promise.all([
+  const [stats, announcements, events, gallery, org, contact, guides, roster, uks_info] = await Promise.all([
     sql`SELECT value FROM site_content WHERE key = 'stats' LIMIT 1`,
     sql`SELECT id, category, title, excerpt, date_label, image_url, published_at, is_published FROM announcements ORDER BY published_at DESC, id DESC`,
     sql`SELECT id, title, date_label, time_label, location, description, status, starts_at, is_published FROM events ORDER BY starts_at DESC, id DESC`,
@@ -46,11 +36,8 @@ async function fetchAllNeonData(sql) {
     sql`SELECT value FROM site_content WHERE key = 'org' LIMIT 1`,
     sql`SELECT value FROM site_content WHERE key = 'contact' LIMIT 1`,
     sql`SELECT value FROM site_content WHERE key = 'guides' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'faq' LIMIT 1`,
     sql`SELECT value FROM site_content WHERE key = 'roster' LIMIT 1`,
     sql`SELECT value FROM site_content WHERE key = 'uks_info' LIMIT 1`,
-    sql`SELECT id, name, email, phone, class_name, message, created_at, status FROM registrations ORDER BY created_at DESC LIMIT 150`,
-    sql`SELECT id, name, email, message, created_at, status FROM contact_messages ORDER BY created_at DESC LIMIT 150`,
   ]);
 
   return {
@@ -102,25 +89,6 @@ async function fetchAllNeonData(sql) {
     org: parseJSON(org[0]?.value, demoContent.org),
     contact: parseJSON(contact[0]?.value, demoContent.contact),
     guides: parseJSON(guides[0]?.value, demoContent.guides),
-    faq: parseJSON(faq[0]?.value, demoContent.faq),
-    registrations: registrations.map((r) => ({
-      id: r.id,
-      name: r.name,
-      email: r.email,
-      phone: r.phone,
-      class_name: r.class_name,
-      message: r.message,
-      created_at: r.created_at,
-      status: r.status || "Baru",
-    })),
-    messages: messages.map((r) => ({
-      id: r.id,
-      name: r.name,
-      email: r.email,
-      message: r.message,
-      created_at: r.created_at,
-      status: r.status || "Belum Dibaca",
-    })),
   };
 }
 
@@ -322,81 +290,7 @@ export async function handleAdminRequest(context, sql, subPath) {
     }
   }
 
-  // 5. Registrations workflow status & DELETE (`/api/admin/registrations`)
-  if (action === "registrations") {
-    if (request.method === "POST" || request.method === "PUT") {
-      const targetId = itemId || body.id;
-      const newStatus = clean(body.status || "Baru", 50);
-      if (!targetId) return error("ID pendaftaran wajib diisi.", 422, request);
-      if (!sql) {
-        const idx = demoStore.registrations.findIndex((i) => String(i.id) === String(targetId));
-        if (idx >= 0) demoStore.registrations[idx].status = newStatus;
-        return json({ ok: true, persisted: false, demoMode: true, list: demoStore.registrations }, 200, request);
-      }
-      try {
-        await ensureStatusColumns(sql);
-        await sql`UPDATE registrations SET status = ${newStatus} WHERE id = ${Number(targetId)}`;
-        const updated = await fetchAllNeonData(sql);
-        return json({ ok: true, persisted: true, list: updated.registrations }, 200, request);
-      } catch (cause) {
-        return error("Gagal memperbarui status pendaftaran: " + cause.message, 500, request);
-      }
-    }
-    if (request.method === "DELETE") {
-      const targetId = itemId || body.id || new URL(request.url).searchParams.get("id");
-      if (!targetId) return error("ID pendaftaran wajib dicantumkan.", 422, request);
-      if (!sql) {
-        demoStore.registrations = demoStore.registrations.filter((i) => String(i.id) !== String(targetId));
-        return json({ ok: true, persisted: false, demoMode: true, list: demoStore.registrations }, 200, request);
-      }
-      try {
-        await sql`DELETE FROM registrations WHERE id = ${Number(targetId)}`;
-        const updated = await fetchAllNeonData(sql);
-        return json({ ok: true, persisted: true, list: updated.registrations }, 200, request);
-      } catch (cause) {
-        return error("Gagal menghapus pendaftaran: " + cause.message, 500, request);
-      }
-    }
-  }
-
-  // 6. Messages status & DELETE (`/api/admin/messages`)
-  if (action === "messages") {
-    if (request.method === "POST" || request.method === "PUT") {
-      const targetId = itemId || body.id;
-      const newStatus = clean(body.status || "Sudah Dibaca", 50);
-      if (!targetId) return error("ID pesan wajib diisi.", 422, request);
-      if (!sql) {
-        const idx = demoStore.messages.findIndex((i) => String(i.id) === String(targetId));
-        if (idx >= 0) demoStore.messages[idx].status = newStatus;
-        return json({ ok: true, persisted: false, demoMode: true, list: demoStore.messages }, 200, request);
-      }
-      try {
-        await ensureStatusColumns(sql);
-        await sql`UPDATE contact_messages SET status = ${newStatus} WHERE id = ${Number(targetId)}`;
-        const updated = await fetchAllNeonData(sql);
-        return json({ ok: true, persisted: true, list: updated.messages }, 200, request);
-      } catch (cause) {
-        return error("Gagal memperbarui status pesan: " + cause.message, 500, request);
-      }
-    }
-    if (request.method === "DELETE") {
-      const targetId = itemId || body.id || new URL(request.url).searchParams.get("id");
-      if (!targetId) return error("ID pesan wajib dicantumkan.", 422, request);
-      if (!sql) {
-        demoStore.messages = demoStore.messages.filter((i) => String(i.id) !== String(targetId));
-        return json({ ok: true, persisted: false, demoMode: true, list: demoStore.messages }, 200, request);
-      }
-      try {
-        await sql`DELETE FROM contact_messages WHERE id = ${Number(targetId)}`;
-        const updated = await fetchAllNeonData(sql);
-        return json({ ok: true, persisted: true, list: updated.messages }, 200, request);
-      } catch (cause) {
-        return error("Gagal menghapus pesan: " + cause.message, 500, request);
-      }
-    }
-  }
-
-  // 7. Site Content updates (`/api/admin/content` - stats, org, contact, guides, faq)
+  // 7. Site Content updates (`/api/admin/content` - stats, org, contact, guides, roster, uks_info)
   if (action === "content") {
     if (request.method === "POST" || request.method === "PUT") {
       const key = clean(body.key, 50);
@@ -404,7 +298,7 @@ export async function handleAdminRequest(context, sql, subPath) {
 
       if (body.all && typeof body.all === "object") {
         // Bulk update multiple site_content keys at once
-        const keys = ["stats", "org", "contact", "guides", "faq", "roster", "uks_info"];
+        const keys = ["stats", "org", "contact", "guides", "roster", "uks_info"];
         if (!sql) {
           keys.forEach((k) => {
             if (body.all[k]) demoStore[k] = body.all[k];
@@ -425,8 +319,8 @@ export async function handleAdminRequest(context, sql, subPath) {
         }
       }
 
-      if (!key || !["stats", "org", "contact", "guides", "faq", "roster", "uks_info"].includes(key) || value == null) {
-        return error("Key atau value konten tidak valid (`stats`, `org`, `contact`, `guides`, `faq`, `roster`, `uks_info`).", 422, request);
+      if (!key || !["stats", "org", "contact", "guides", "roster", "uks_info"].includes(key) || value == null) {
+        return error("Key atau value konten tidak valid (`stats`, `org`, `contact`, `guides`, `roster`, `uks_info`).", 422, request);
       }
 
       if (!sql) {
@@ -465,7 +359,6 @@ export async function handleAdminRequest(context, sql, subPath) {
       if (backupData.org) demoStore.org = backupData.org;
       if (backupData.contact) demoStore.contact = backupData.contact;
       if (backupData.guides) demoStore.guides = backupData.guides;
-      if (backupData.faq) demoStore.faq = backupData.faq;
       if (backupData.roster) demoStore.roster = backupData.roster;
       if (backupData.uks_info) demoStore.uks_info = backupData.uks_info;
       return json({ ok: true, persisted: false, demoMode: true, message: "Backup berhasil dipulihkan (mode memori lokal).", data: demoStore }, 200, request);

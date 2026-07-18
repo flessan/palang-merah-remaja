@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { demoContent } from "../_lib/fallback.js";
-import { clean, error, json, readBody } from "../_lib/response.js";
+import { error, json } from "../_lib/response.js";
 import { getDemoStore, handleAdminRequest } from "../_lib/admin-handler.js";
 
 function getRoute(request) {
@@ -32,7 +32,7 @@ function rowToEvent(row) {
 }
 
 async function getContent(sql) {
-  const [stats, announcements, events, gallery, org, contact, guides, faq, roster, uks_info] = await Promise.all([
+  const [stats, announcements, events, gallery, org, contact, guides, roster, uks_info] = await Promise.all([
     sql`SELECT value FROM site_content WHERE key = 'stats' LIMIT 1`,
     sql`SELECT id, category, title, excerpt, date_label, image_url, published_at FROM announcements WHERE is_published = true ORDER BY published_at DESC LIMIT 6`,
     sql`SELECT id, title, date_label, time_label, location, description, status, starts_at FROM events WHERE is_published = true ORDER BY starts_at ASC LIMIT 6`,
@@ -40,7 +40,6 @@ async function getContent(sql) {
     sql`SELECT value FROM site_content WHERE key = 'org' LIMIT 1`,
     sql`SELECT value FROM site_content WHERE key = 'contact' LIMIT 1`,
     sql`SELECT value FROM site_content WHERE key = 'guides' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'faq' LIMIT 1`,
     sql`SELECT value FROM site_content WHERE key = 'roster' LIMIT 1`,
     sql`SELECT value FROM site_content WHERE key = 'uks_info' LIMIT 1`,
   ]);
@@ -54,7 +53,6 @@ async function getContent(sql) {
     org: parseJSON(org[0]?.value, activeDemo.org),
     contact: parseJSON(contact[0]?.value, activeDemo.contact),
     guides: parseJSON(guides[0]?.value, activeDemo.guides),
-    faq: parseJSON(faq[0]?.value, activeDemo.faq),
     roster: parseJSON(roster[0]?.value, activeDemo.roster),
     uks_info: parseJSON(uks_info[0]?.value, activeDemo.uks_info),
   };
@@ -86,44 +84,8 @@ export async function onRequest(context) {
     }
   }
 
-  if (request.method === "POST" && (route === "registrations" || route === "messages")) {
-    const body = await readBody(request);
-    if (!body || body.website) return json({ ok: true, message: "Terkirim" }, 202, request);
-    const name = clean(body.name, 100);
-    const email = clean(body.email, 160).toLowerCase();
-    const message = clean(body.message, 1200);
-    if (!name || !email || !email.includes("@")) return error("Nama dan email yang valid wajib diisi.", 422, request);
-    if (route === "registrations" && !clean(body.phone, 40)) return error("Nomor WhatsApp wajib diisi.", 422, request);
-    if (route === "messages" && !message) return error("Pesan wajib diisi.", 422, request);
-    
-    const activeDemo = getDemoStore();
-    if (!sql) {
-      if (activeDemo) {
-        if (route === "registrations") {
-          activeDemo.registrations = activeDemo.registrations || [];
-          activeDemo.registrations.unshift({ id: Date.now(), name, email, phone: clean(body.phone, 40), class_name: clean(body.className, 100), message, created_at: new Date().toISOString(), status: "Baru" });
-        } else {
-          activeDemo.messages = activeDemo.messages || [];
-          activeDemo.messages.unshift({ id: Date.now(), name, email, message, created_at: new Date().toISOString(), status: "Belum Dibaca" });
-        }
-      }
-      return json({ ok: true, persisted: false, message: "Mode demo: formulir tervalidasi, dan tersimpan di memori sesi." }, 202, request);
-    }
-    try {
-      if (route === "registrations") {
-        await sql`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Baru'`.catch(() => {});
-        await sql`INSERT INTO registrations (name, email, phone, class_name, message, status) VALUES (${name}, ${email}, ${clean(body.phone, 40)}, ${clean(body.className, 100)}, ${message}, 'Baru')`;
-      } else {
-        if (!message) return error("Pesan wajib diisi.", 422, request);
-        await sql`ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Belum Dibaca'`.catch(() => {});
-        await sql`INSERT INTO contact_messages (name, email, message, status) VALUES (${name}, ${email}, ${message}, 'Belum Dibaca')`;
-      }
-      return json({ ok: true, persisted: true, message: "Terkirim" }, 201, request);
-    } catch (cause) {
-      console.error("Neon write failed", cause);
-      return error("Server belum siap menerima data. Coba lagi sebentar.", 503, request);
-    }
-  }
+  // Public write endpoints (registrations & messages) were removed per project decision.
+  // The site is now read-only for visitors; contact happens via WhatsApp/social links.
 
   return error("Endpoint tidak ditemukan.", 404, request);
 }

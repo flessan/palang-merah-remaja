@@ -42,29 +42,15 @@ CREATE TABLE IF NOT EXISTS gallery_albums (
   is_published BOOLEAN NOT NULL DEFAULT TRUE
 );
 
-CREATE TABLE IF NOT EXISTS registrations (
-  id BIGSERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  class_name TEXT NOT NULL DEFAULT '',
-  message TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'Baru',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS contact_messages (
-  id BIGSERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  message TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'Belum Dibaca',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 CREATE INDEX IF NOT EXISTS announcements_published_idx ON announcements (published_at DESC) WHERE is_published = TRUE;
 CREATE INDEX IF NOT EXISTS gallery_event_date_idx ON gallery_albums (event_date DESC) WHERE is_published = TRUE;
-CREATE INDEX IF NOT EXISTS registrations_created_idx ON registrations (created_at DESC);
+
+-- NOTE: The public registration form and contact-message inbox were removed
+-- from the product (registration happens offline via the secretariat, and
+-- visitors reach the team directly on WhatsApp). If your database was
+-- created with the old schema, you can clean up the legacy tables with:
+--   DROP TABLE IF EXISTS registrations;
+--   DROP TABLE IF EXISTS contact_messages;
 
 -- Keep all editable copy in JSON so the public API stays small and easy to maintain.
 -- The complete seed is in db/seed.sql.

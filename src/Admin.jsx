@@ -1,27 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Accessibility,
-  ArrowLeft,
   ArrowRight,
   Award,
   Bell,
   CalendarDays,
   Check,
-  ChevronDown,
-  ChevronRight,
   CircleAlert,
-  CircleCheck,
   Clock3,
-  Cloud,
   Copy,
   Crown,
   Database,
   Download,
   Droplets,
   Edit3,
-  ExternalLink,
-  Eye,
-  FileText,
   Flame,
   FolderOpen,
   GraduationCap,
@@ -34,12 +26,9 @@ import {
   Key,
   Lock,
   LogOut,
-  Mail,
   MapPin,
   Megaphone,
   MessageCircle,
-  MessageSquare,
-  Moon,
   NotebookPen,
   Phone,
   Plus,
@@ -52,8 +41,6 @@ import {
   Sun,
   Trash2,
   Upload,
-
-  UserCheck,
   UserRound,
   UserRoundCheck,
   Users,
@@ -61,7 +48,6 @@ import {
   WalletCards,
   Wind,
   X,
-  Youtube,
 } from "lucide-react";
 import { assetLibrary, fallbackContent } from "./data.js";
 
@@ -136,7 +122,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
   const [editingPerson, setEditingPerson] = useState(null); // { type: 'advisory'|'leaders', item, index }
   const [editingDivision, setEditingDivision] = useState(null); // { item, index }
   const [editingGuide, setEditingGuide] = useState(null);
-  const [editingFaq, setEditingFaq] = useState(null); // { item, index }
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [restoreJsonText, setRestoreJsonText] = useState("");
 
@@ -228,7 +213,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
       org: data.org,
       contact: data.contact,
       guides: data.guides,
-      faq: data.faq,
     };
     const jsonStr = JSON.stringify(backupObj, null, 2);
     const blob = new Blob([jsonStr], { type: "application/json" });
@@ -239,35 +223,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
     a.click();
     URL.revokeObjectURL(url);
     showToast("File backup JSON berhasil diunduh.");
-  };
-
-  const handleExportCSV = (list, type) => {
-    if (!list || !list.length) {
-      showToast("Tidak ada data untuk diunduh.", "error");
-      return;
-    }
-    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-    if (type === "registrations") {
-      csvContent += "ID,Nama Lengkap,Email,WhatsApp,Kelas/Jurusan,Motivasi,Status,Tanggal Daftar\n";
-      list.forEach((row) => {
-        const esc = (txt) => `"${String(txt || "").replace(/"/g, '""')}"`;
-        csvContent += `${row.id},${esc(row.name)},${esc(row.email)},${esc(row.phone)},${esc(row.class_name)},${esc(row.message)},${esc(row.status)},${esc(row.created_at)}\n`;
-      });
-    } else {
-      csvContent += "ID,Nama,Email,Pesan,Status,Tanggal Masuk\n";
-      list.forEach((row) => {
-        const esc = (txt) => `"${String(txt || "").replace(/"/g, '""')}"`;
-        csvContent += `${row.id},${esc(row.name)},${esc(row.email)},${esc(row.message)},${esc(row.status)},${esc(row.created_at)}\n`;
-      });
-    }
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `pmr-${type}-${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast(`File CSV ${type === "registrations" ? "Pendaftar" : "Pesan"} berhasil diunduh.`);
   };
 
   const handleRestoreBackup = async () => {
@@ -356,48 +311,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
     }
   };
 
-  const updateRegistrationStatus = async (id, status) => {
-    try {
-      await adminFetch("/api/admin/registrations", { method: "POST", body: JSON.stringify({ id, status }) });
-      showToast(`Status pendaftar diubah menjadi: ${status}`);
-      await loadAdminData(true);
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  };
-
-  const deleteRegistration = async (id) => {
-    if (!window.confirm("Hapus data pendaftar ini?")) return;
-    try {
-      await adminFetch(`/api/admin/registrations?id=${id}`, { method: "DELETE", body: JSON.stringify({ id }) });
-      showToast("Pendaftar berhasil dihapus.");
-      await loadAdminData(true);
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  };
-
-  const updateMessageStatus = async (id, status) => {
-    try {
-      await adminFetch("/api/admin/messages", { method: "POST", body: JSON.stringify({ id, status }) });
-      showToast(`Status pesan diubah menjadi: ${status}`);
-      await loadAdminData(true);
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  };
-
-  const deleteMessage = async (id) => {
-    if (!window.confirm("Hapus pesan ini?")) return;
-    try {
-      await adminFetch(`/api/admin/messages?id=${id}`, { method: "DELETE", body: JSON.stringify({ id }) });
-      showToast("Pesan berhasil dihapus.");
-      await loadAdminData(true);
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  };
-
   const saveContentKey = async (key, value) => {
     try {
       await adminFetch("/api/admin/content", { method: "POST", body: JSON.stringify({ key, value }) });
@@ -417,7 +330,7 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
               <Lock size={28} />
             </span>
             <h2>Portal Admin PMR Wira</h2>
-            <p>Masukkan PIN atau sandi rahasia untuk mengelola konten web, kabar, agenda, galeri, dan pendaftaran relawan.</p>
+            <p>Masukkan PIN atau sandi rahasia untuk mengelola konten web, kabar, agenda, galeri, jadwal jaga, dan struktur organisasi.</p>
           </div>
           <form onSubmit={handleLogin} className="gate-form">
             <label className="field">
@@ -473,18 +386,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
     return matchQuery && matchCat;
   });
 
-  const filteredRegistrations = (data.registrations || []).filter((item) => {
-    const matchQuery = !regSearch.trim() || `${item.name} ${item.email} ${item.phone} ${item.class_name}`.toLowerCase().includes(regSearch.toLowerCase());
-    const matchStat = regFilter === "Semua" || item.status === regFilter;
-    return matchQuery && matchStat;
-  });
-
-  const filteredMessages = (data.messages || []).filter((item) => {
-    const matchQuery = !msgSearch.trim() || `${item.name} ${item.email} ${item.message}`.toLowerCase().includes(msgSearch.toLowerCase());
-    const matchStat = msgFilter === "Semua" || item.status === msgFilter;
-    return matchQuery && matchStat;
-  });
-
   return (
     <div className="admin-shell container">
       {/* Top Admin Bar */}
@@ -529,8 +430,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           { id: "events", label: "Agenda Kegiatan", icon: "calendar", count: data.events?.length },
           { id: "roster", label: "Jadwal Jaga Adil", icon: "shield-check", highlight: true },
           { id: "gallery", label: "Galeri Album", icon: "flame", count: data.gallery?.length },
-          { id: "registrations", label: "Pendaftar Relawan", icon: "user-round-check", count: data.registrations?.filter(r => r.status === "Baru").length || data.registrations?.length, highlight: true },
-          { id: "messages", label: "Pesan Masuk", icon: "bell", count: data.messages?.filter(m => m.status === "Belum Dibaca").length || data.messages?.length, highlight: true },
           { id: "org", label: "Organisasi & Divisi", icon: "users-round" },
           { id: "content", label: "Pengaturan & P3K", icon: "shield-check" },
         ].map((tab) => (
@@ -617,30 +516,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
             onDelete={deleteGallery}
           />
         )}
-        {activeTab === "registrations" && (
-          <RegistrationsTab
-            list={filteredRegistrations}
-            search={regSearch}
-            setSearch={setRegSearch}
-            filter={regFilter}
-            setFilter={setRegFilter}
-            onExport={() => handleExportCSV(filteredRegistrations, "registrations")}
-            onUpdateStatus={updateRegistrationStatus}
-            onDelete={deleteRegistration}
-          />
-        )}
-        {activeTab === "messages" && (
-          <MessagesTab
-            list={filteredMessages}
-            search={msgSearch}
-            setSearch={setMsgSearch}
-            filter={msgFilter}
-            setFilter={setMsgFilter}
-            onExport={() => handleExportCSV(filteredMessages, "messages")}
-            onUpdateStatus={updateMessageStatus}
-            onDelete={deleteMessage}
-          />
-        )}
         {activeTab === "org" && (
           <OrgTab
             org={data.org}
@@ -653,16 +528,13 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           <SettingsTab
             stats={data.stats}
             guides={data.guides}
-            faq={data.faq}
             contact={data.contact}
             uksInfo={data.uks_info}
             onSaveStats={(newStats) => saveContentKey("stats", newStats)}
             onSaveGuides={(newGuides) => saveContentKey("guides", newGuides)}
-            onSaveFaq={(newFaq) => saveContentKey("faq", newFaq)}
             onSaveContact={(newContact) => saveContentKey("contact", newContact)}
             onSaveUksInfo={(newUksInfo) => saveContentKey("uks_info", newUksInfo)}
             onEditGuide={(item) => setEditingGuide(item || { id: "guide-" + Date.now(), title: "", icon: "droplets", tone: "red", tag: "Tindakan cepat", summary: "", steps: ["Langkah 1..."] })}
-            onEditFaq={(item, index) => setEditingFaq(item ? { ...item, index } : { question: "", answer: "", index: -1 })}
           />
         )}
       </div>
@@ -690,6 +562,7 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           onClose={() => setEditingGallery(null)}
           onSave={saveGallery}
           showToast={showToast}
+          imgbbApiKey={data?.contact?.imgbb_api_key}
         />
       )}
       {editingPerson && (
@@ -702,6 +575,7 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
             setEditingPerson(null);
           }}
           showToast={showToast}
+          imgbbApiKey={data?.contact?.imgbb_api_key}
         />
       )}
       {editingDivision && (
@@ -713,6 +587,8 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
             saveContentKey("org", newOrg);
             setEditingDivision(null);
           }}
+          showToast={showToast}
+          imgbbApiKey={data?.contact?.imgbb_api_key}
         />
       )}
       {editingGuide && (
@@ -726,18 +602,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           }}
         />
       )}
-      {editingFaq && (
-        <FaqEditModal
-          modalData={editingFaq}
-          faqList={data.faq}
-          onClose={() => setEditingFaq(null)}
-          onSaveFaq={(newFaq) => {
-            saveContentKey("faq", newFaq);
-            setEditingFaq(null);
-          }}
-        />
-      )}
-
       {showRestoreModal && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setShowRestoreModal(false)}>
           <div className="admin-modal" role="dialog">
@@ -772,8 +636,17 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
 
 // Sub-Tab 1: Overview Tab
 function OverviewTab({ data, healthStatus, setActiveTab, setEditingNews, setEditingEvent, setEditingGallery }) {
-  const newRegCount = (data.registrations || []).filter((r) => r.status === "Baru").length;
-  const newMsgCount = (data.messages || []).filter((m) => m.status === "Belum Dibaca").length;
+  const publishedNews = (data.announcements || []).filter(a => a.is_published !== false).length;
+  const upcomingEvents = (data.events || []).filter(e => e.status !== "Selesai").length;
+  const totalPhotos = (data.gallery || []).reduce((acc, a) => acc + (a.images?.length || 1), 0);
+  const divisionCount = (data.org?.divisions || []).length;
+  const memberCount = (data.org?.divisions || []).reduce((acc, d) => acc + (d.anggota?.length || 0), 0);
+  const medCount = (data.uks_info?.stok_obat_dan_alat || []).length;
+
+  const recentContent = [
+    ...(data.announcements || []).slice(0, 3).map((n) => ({ id: n.id, kind: "Kabar", icon: "megaphone", title: n.title, meta: n.date || n.date_label || "Terbit", tab: "announcements", published: n.is_published !== false })),
+    ...(data.events || []).slice(0, 2).map((e) => ({ id: e.id, kind: "Agenda", icon: "calendar", title: e.title, meta: `${e.date || e.date_label || ""} ${e.time || e.time_label || ""}`.trim() || "Terjadwal", tab: "events", published: e.is_published !== false })),
+  ];
 
   return (
     <div className="overview-tab">
@@ -789,42 +662,42 @@ function OverviewTab({ data, healthStatus, setActiveTab, setEditingNews, setEdit
         <button className="button button-ghost button-sm" onClick={() => { setActiveTab("gallery"); setEditingGallery({ title: "", category: "Kegiatan", date_label: new Date().toLocaleDateString("id-ID"), event_date: new Date().toISOString().slice(0, 10), cover_url: "/gudang/gallery/IMG-20260129-WA0031_icpj2a_fqfute.avif", images: ["/gudang/gallery/IMG-20260129-WA0031_icpj2a_fqfute.avif"], description: "", is_published: true }); }}>
           <Plus size={15} /> Buat Album Galeri
         </button>
-        <button className="button button-ghost button-sm" onClick={() => setActiveTab("registrations")}>
-          <UserRoundCheck size={15} /> Kotak Masuk Relawan ({newRegCount})
+        <button className="button button-ghost button-sm" onClick={() => setActiveTab("roster")}>
+          <ShieldCheck size={15} /> Generate Jadwal Jaga
         </button>
       </div>
 
       {/* KPI Cards Grid */}
       <div className="kpi-grid">
         <div className="kpi-card" onClick={() => setActiveTab("announcements")}>
-          <div className="kpi-head"><span>Kabar & Artikel</span><Icon name="megaphone" size={20} /></div>
+          <div className="kpi-head"><span>Kabar & Artikel</span><span className="kpi-icon"><Icon name="megaphone" size={20} /></span></div>
           <strong>{data.announcements?.length || 0}</strong>
-          <small>{data.announcements?.filter(a => a.is_published !== false).length || 0} terbit · {data.announcements?.filter(a => a.is_published === false).length || 0} draf</small>
+          <small>{publishedNews} terbit · {(data.announcements?.length || 0) - publishedNews} draf</small>
         </div>
         <div className="kpi-card" onClick={() => setActiveTab("events")}>
-          <div className="kpi-head"><span>Agenda & Kegiatan</span><Icon name="calendar" size={20} /></div>
+          <div className="kpi-head"><span>Agenda & Kegiatan</span><span className="kpi-icon"><Icon name="calendar" size={20} /></span></div>
           <strong>{data.events?.length || 0}</strong>
-          <small>{data.events?.filter(e => e.status !== "Selesai").length || 0} kegiatan mendatang / rutin</small>
+          <small>{upcomingEvents} kegiatan mendatang / rutin</small>
         </div>
         <div className="kpi-card" onClick={() => setActiveTab("gallery")}>
-          <div className="kpi-head"><span>Album Galeri</span><Icon name="flame" size={20} /></div>
+          <div className="kpi-head"><span>Album Galeri</span><span className="kpi-icon"><Icon name="flame" size={20} /></span></div>
           <strong>{data.gallery?.length || 0}</strong>
-          <small>{(data.gallery || []).reduce((acc, a) => acc + (a.images?.length || 1), 0)} total foto tersimpan</small>
+          <small>{totalPhotos} total foto tersimpan</small>
         </div>
-        <div className={`kpi-card ${newRegCount > 0 ? "kpi-alert" : ""}`} onClick={() => setActiveTab("registrations")}>
-          <div className="kpi-head"><span>Pendaftar Relawan</span><Icon name="user-round-check" size={20} /></div>
-          <strong>{data.registrations?.length || 0}</strong>
-          <small>{newRegCount > 0 ? `⚠️ ${newRegCount} pendaftar baru menunggu proses` : "Semua pendaftar telah diproses"}</small>
-        </div>
-        <div className={`kpi-card ${newMsgCount > 0 ? "kpi-alert" : ""}`} onClick={() => setActiveTab("messages")}>
-          <div className="kpi-head"><span>Pesan Kontak</span><Icon name="bell" size={20} /></div>
-          <strong>{data.messages?.length || 0}</strong>
-          <small>{newMsgCount > 0 ? `⚠️ ${newMsgCount} pesan baru belum dibaca` : "Semua pesan telah ditinjau"}</small>
+        <div className="kpi-card" onClick={() => setActiveTab("org")}>
+          <div className="kpi-head"><span>Divisi Organisasi</span><span className="kpi-icon"><Icon name="users-round" size={20} /></span></div>
+          <strong>{divisionCount}</strong>
+          <small>{memberCount} anggota terdaftar di seluruh divisi</small>
         </div>
         <div className="kpi-card" onClick={() => setActiveTab("content")}>
-          <div className="kpi-head"><span>Panduan EduScope P3K</span><Icon name="shield-check" size={20} /></div>
+          <div className="kpi-head"><span>Panduan EduScope P3K</span><span className="kpi-icon"><Icon name="shield-check" size={20} /></span></div>
           <strong>{data.guides?.length || 0}</strong>
           <small>Mimisan, Pingsan, Luka Bakar, Tersedak</small>
+        </div>
+        <div className="kpi-card" onClick={() => setActiveTab("content")}>
+          <div className="kpi-head"><span>Stok Obat & Alat UKS</span><span className="kpi-icon"><Icon name="heart-pulse" size={20} /></span></div>
+          <strong>{medCount}</strong>
+          <small>Item layanan gratis tampil di halaman UKS</small>
         </div>
       </div>
 
@@ -865,35 +738,25 @@ function OverviewTab({ data, healthStatus, setActiveTab, setEditingNews, setEdit
           )}
         </div>
 
-        {/* Recent Submissions Feed */}
+        {/* Recent Content Feed */}
         <div className="admin-section-card">
           <div className="card-top">
-            <h4><UserCheck size={17} /> Pendaftar & Pesan Terbaru</h4>
-            <button className="text-button" onClick={() => setActiveTab("registrations")}>Lihat Semua <ArrowRight size={14} /></button>
+            <h4><Clock3 size={17} /> Konten Terbaru Situs</h4>
+            <button className="text-button" onClick={() => setActiveTab("announcements")}>Kelola <ArrowRight size={14} /></button>
           </div>
           <div className="feed-list">
-            {(data.registrations || []).slice(0, 3).map((reg) => (
-              <div className="feed-item" key={reg.id} onClick={() => setActiveTab("registrations")}>
-                <span className={`status-dot ${reg.status === "Baru" ? "dot-red" : "dot-green"}`} />
+            {recentContent.map((item) => (
+              <div className="feed-item" key={`${item.kind}-${item.id}`} onClick={() => setActiveTab(item.tab)}>
+                <span className={`status-dot ${item.published ? "dot-green" : "dot-yellow"}`} />
                 <div className="feed-info">
-                  <strong>{reg.name} <small>({reg.class_name || "Siswa"})</small></strong>
-                  <p>{reg.message || "Pendaftaran relawan baru PMR Wira..."}</p>
+                  <strong>{item.title || "(Tanpa judul)"}</strong>
+                  <p>{item.meta}</p>
                 </div>
-                <span className="feed-status">{reg.status}</span>
+                <span className="feed-status">{item.kind}</span>
               </div>
             ))}
-            {(data.messages || []).slice(0, 2).map((msg) => (
-              <div className="feed-item" key={msg.id} onClick={() => setActiveTab("messages")}>
-                <span className={`status-dot ${msg.status === "Belum Dibaca" ? "dot-yellow" : "dot-blue"}`} />
-                <div className="feed-info">
-                  <strong>{msg.name} <small>(Pesan Kontak)</small></strong>
-                  <p>{msg.message}</p>
-                </div>
-                <span className="feed-status">{msg.status}</span>
-              </div>
-            ))}
-            {(!data.registrations?.length && !data.messages?.length) && (
-              <p className="empty-msg">Belum ada pendaftaran atau pesan baru.</p>
+            {!recentContent.length && (
+              <p className="empty-msg">Belum ada konten. Mulai dengan membuat kabar atau agenda baru.</p>
             )}
           </div>
         </div>
@@ -969,7 +832,7 @@ function EventsTab({ list, search, setSearch, filter, setFilter, onOpenCreate, o
       <div className="module-header">
         <div>
           <h2>Manajemen Agenda Kegiatan</h2>
-          <p>Atur jadwal latihan rutin, pendaftaran, dan kegiatan khusus organisasi.</p>
+          <p>Atur jadwal latihan rutin dan kegiatan khusus organisasi.</p>
         </div>
         <button className="button button-primary" onClick={onOpenCreate}>
           <Plus size={16} /> Tambah Agenda
@@ -1463,164 +1326,7 @@ function GalleryTab({ list, search, setSearch, category, setCategory, onOpenCrea
   );
 }
 
-// Sub-Tab 5: Registrations Tab
-function RegistrationsTab({ list, search, setSearch, filter, setFilter, onExport, onUpdateStatus, onDelete }) {
-  const statuses = ["Semua", "Baru", "Diproses", "Diterima", "Ditolak"];
-  return (
-    <div className="module-tab">
-      <div className="module-header">
-        <div>
-          <h2>Kotak Masuk: Pendaftaran Relawan</h2>
-          <p>Tinjau calon relawan yang mendaftar dari formulir publik, ubah status, atau hubungi via WhatsApp.</p>
-        </div>
-        <button className="button button-yellow" onClick={onExport}>
-          <Download size={16} /> Unduh CSV ({list.length})
-        </button>
-      </div>
-
-      <div className="admin-filter-bar">
-        <label className="search-field">
-          <Search size={18} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama, email, nomor WA, atau kelas..." />
-          {search && <button onClick={() => setSearch("")}><X size={16} /></button>}
-        </label>
-        <div className="filter-pills">
-          {statuses.map((s) => (
-            <button key={s} className={`filter-pill ${filter === s ? "active" : ""}`} onClick={() => setFilter(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Calon Relawan</th>
-              <th>Kontak & WA</th>
-              <th>Kelas / Jurusan</th>
-              <th>Motivasi / Pesan</th>
-              <th>Status Alur</th>
-              <th className="text-right">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((reg) => {
-              const waNumber = String(reg.phone || "").replace(/[^0-9]/g, "").replace(/^0/, "62");
-              return (
-                <tr key={reg.id}>
-                  <td>
-                    <strong>{reg.name}</strong>
-                    <small className="td-time">{new Date(reg.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</small>
-                  </td>
-                  <td>
-                    <div className="contact-links">
-                      <a href={`https://wa.me/${waNumber}?text=Halo%20${encodeURIComponent(reg.name)},%20ini%20sekretariat%20PMR%20Wira%20SMKN%204%20Banjarmasin...`} target="_blank" rel="noreferrer" className="wa-btn">
-                        <MessageCircle size={14} /> <span>{reg.phone}</span>
-                      </a>
-                      <a href={`mailto:${reg.email}`} className="mail-link"><Mail size={13} /> {reg.email}</a>
-                    </div>
-                  </td>
-                  <td><span className="tag">{reg.class_name || "SMKN 4"}</span></td>
-                  <td><p className="td-msg">{reg.message || "—"}</p></td>
-                  <td>
-                    <select
-                      className={`status-select status-${reg.status?.toLowerCase() || "baru"}`}
-                      value={reg.status || "Baru"}
-                      onChange={(e) => onUpdateStatus(reg.id, e.target.value)}
-                    >
-                      <option value="Baru">Baru</option>
-                      <option value="Diproses">Diproses</option>
-                      <option value="Diterima">Diterima</option>
-                      <option value="Ditolak">Ditolak</option>
-                    </select>
-                  </td>
-                  <td className="td-actions text-right">
-                    <button className="button button-ghost button-sm text-red" onClick={() => onDelete(reg.id)} title="Hapus pendaftaran">
-                      <Trash2 size={15} />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {!list.length && <tr><td colSpan="6" className="empty-td">Tidak ada data pendaftaran relawan.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// Sub-Tab 6: Messages Tab
-function MessagesTab({ list, search, setSearch, filter, setFilter, onExport, onUpdateStatus, onDelete }) {
-  const filters = ["Semua", "Belum Dibaca", "Sudah Dibaca", "Dibalas"];
-  return (
-    <div className="module-tab">
-      <div className="module-header">
-        <div>
-          <h2>Kotak Masuk: Pesan & Pertanyaan</h2>
-          <p>Kelola pertanyaan umum dan pesan dari pengunjung atau orang tua siswa.</p>
-        </div>
-        <button className="button button-yellow" onClick={onExport}>
-          <Download size={16} /> Unduh CSV ({list.length})
-        </button>
-      </div>
-
-      <div className="admin-filter-bar">
-        <label className="search-field">
-          <Search size={18} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari pengirim, email, atau isi pesan..." />
-          {search && <button onClick={() => setSearch("")}><X size={16} /></button>}
-        </label>
-        <div className="filter-pills">
-          {filters.map((f) => (
-            <button key={f} className={`filter-pill ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="messages-grid">
-        {list.map((msg) => (
-          <div className={`message-card ${msg.status === "Belum Dibaca" ? "msg-unread" : ""}`} key={msg.id}>
-            <div className="msg-head">
-              <div>
-                <strong>{msg.name}</strong>
-                <a href={`mailto:${msg.email}?subject=Balasan%20dari%20PMR%20Wira%20SMKN%204%20Banjarmasin`} className="mail-link"><Mail size={13} /> {msg.email}</a>
-              </div>
-              <small className="td-time">{new Date(msg.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</small>
-            </div>
-            <p className="msg-body">“{msg.message}”</p>
-            <div className="msg-foot">
-              <select
-                className={`status-select status-${msg.status?.toLowerCase().replace(/\s+/g, "-") || "belum-dibaca"}`}
-                value={msg.status || "Belum Dibaca"}
-                onChange={(e) => onUpdateStatus(msg.id, e.target.value)}
-              >
-                <option value="Belum Dibaca">Belum Dibaca</option>
-                <option value="Sudah Dibaca">Sudah Dibaca</option>
-                <option value="Dibalas">Dibalas</option>
-              </select>
-              <div className="msg-btns">
-                <a href={`mailto:${msg.email}?subject=Balasan%20dari%20PMR%20Wira%20SMKN%204%20Banjarmasin`} className="button button-ghost button-sm" title="Balas Email">
-                  <Send size={14} /> Balas
-                </a>
-                <button className="button button-ghost button-sm text-red" onClick={() => onDelete(msg.id)} title="Hapus pesan">
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {!list.length && <div className="empty-box"><p>Tidak ada pesan yang masuk.</p></div>}
-      </div>
-    </div>
-  );
-}
-
-// Sub-Tab 7: Organization Tab
+// Sub-Tab 5: Organization Tab
 function OrgTab({ org, onSaveOrg, onEditPerson, onEditDivision }) {
   const [periode, setPeriode] = useState(org?.periode || "2026/2027");
 
@@ -1758,7 +1464,7 @@ function OrgTab({ org, onSaveOrg, onEditPerson, onEditDivision }) {
 }
 
 // Sub-Tab 8: Settings & EduScope Tab
-function SettingsTab({ stats, guides, faq, contact, uksInfo, onSaveStats, onSaveGuides, onSaveFaq, onSaveContact, onSaveUksInfo, onEditGuide, onEditFaq }) {
+function SettingsTab({ stats, guides, contact, uksInfo, onSaveStats, onSaveGuides, onSaveContact, onSaveUksInfo, onEditGuide }) {
   const [statsState, setStatsState] = useState(stats || fallbackContent.stats);
   const [contactState, setContactState] = useState(contact || fallbackContent.contact);
   const [uksInfoState, setUksInfoState] = useState(uksInfo || fallbackContent.uks_info);
@@ -1809,19 +1515,12 @@ function SettingsTab({ stats, guides, faq, contact, uksInfo, onSaveStats, onSave
     onSaveGuides(list);
   };
 
-  const deleteFaqItem = (idx) => {
-    if (!window.confirm("Hapus pertanyaan FAQ ini?")) return;
-    const list = [...(faq || [])];
-    list.splice(idx, 1);
-    onSaveFaq(list);
-  };
-
   return (
     <div className="module-tab">
       <div className="module-header">
         <div>
           <h2>Pengaturan Konten, Statistik, EduScope & Kontak</h2>
-          <p>Sesuaikan statistik beranda, materi edukasi P3K EduScope, FAQ, dan informasi jam operasional sekretariat.</p>
+          <p>Sesuaikan statistik beranda, materi edukasi P3K EduScope, dan informasi jam operasional sekretariat.</p>
         </div>
       </div>
 
@@ -1888,30 +1587,6 @@ function SettingsTab({ stats, guides, faq, contact, uksInfo, onSaveStats, onSave
         </div>
       </div>
 
-      {/* 3. FAQ */}
-      <div className="admin-section-box">
-        <div className="box-head">
-          <h3><MessageSquare size={18} /> Pertanyaan Umum / FAQ (`faq`)</h3>
-          <button className="button button-primary button-sm" onClick={() => onEditFaq(null)}>
-            <Plus size={14} /> Tambah FAQ
-          </button>
-        </div>
-        <div className="faq-admin-list">
-          {(faq || []).map((item, idx) => (
-            <div className="faq-admin-item" key={idx}>
-              <div className="fai-text">
-                <strong>{item.question}</strong>
-                <p>{item.answer}</p>
-              </div>
-              <div className="oac-btns">
-                <button onClick={() => onEditFaq(item, idx)}><Edit3 size={15} /></button>
-                <button className="text-red" onClick={() => deleteFaqItem(idx)}><Trash2 size={15} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* 4. Info Kontak & Sekretariat */}
       <div className="admin-section-box">
         <div className="box-head">
@@ -1947,12 +1622,12 @@ function SettingsTab({ stats, guides, faq, contact, uksInfo, onSaveStats, onSave
             </label>
             <div className="two-fields">
               <label className="field">
-                <span>Nomor WhatsApp Sekretariat (untuk pesan singkat)</span>
+                <span>Nomor WhatsApp Sekretariat (format internasional)</span>
                 <input value={contactState.sekretariat?.whatsapp_number || ""} onChange={(e) => updateSekretariat("whatsapp_number", e.target.value)} placeholder="6283191735329" />
               </label>
               <label className="field">
-                <span>Google Form URL Pendaftaran</span>
-                <input value={contactState.bergabung?.google_form_url || ""} onChange={(e) => updateBergabung("google_form_url", e.target.value)} placeholder="https://forms.gle/..." />
+                <span>Catatan Info Keanggotaan (`bergabung.catatan`)</span>
+                <input value={contactState.bergabung?.catatan || ""} onChange={(e) => updateBergabung("catatan", e.target.value)} placeholder="Informasi keanggotaan dapat ditanyakan via WhatsApp..." />
               </label>
             </div>
 
@@ -2163,7 +1838,7 @@ function AssetLibraryPicker({ onSelect }) {
   );
 }
 
-function AnnouncementModal({ item, onClose, onSave, showToast }) {
+function AnnouncementModal({ item, onClose, onSave, showToast, imgbbApiKey }) {
   const [form, setForm] = useState(item);
   const update = (k, v) => setForm({ ...form, [k]: v });
 
@@ -2202,7 +1877,7 @@ function AnnouncementModal({ item, onClose, onSave, showToast }) {
                 label="Atau Upload Foto Baru (preview + upload)"
                 value={form.image || form.image_url || ""}
                 onChange={(url) => update("image_url", url)}
-                apiKey={data?.contact?.imgbb_api_key}
+                apiKey={imgbbApiKey}
                 showToast={showToast}
               />
             </div>
@@ -2288,7 +1963,7 @@ function EventModal({ item, onClose, onSave }) {
   );
 }
 
-function GalleryModal({ item, onClose, onSave, showToast }) {
+function GalleryModal({ item, onClose, onSave, showToast, imgbbApiKey }) {
   const [form, setForm] = useState({ ...item, images: item.images || [item.cover || item.cover_url || ""] });
   const update = (k, v) => setForm({ ...form, [k]: v });
 
@@ -2348,7 +2023,7 @@ function GalleryModal({ item, onClose, onSave, showToast }) {
                 label="Upload Foto Cover Baru"
                 value={form.cover || form.cover_url || ""}
                 onChange={(url) => update("cover_url", url)}
-                apiKey={data?.contact?.imgbb_api_key}
+                apiKey={imgbbApiKey}
                 showToast={showToast}
               />
             </div>
@@ -2367,7 +2042,7 @@ function GalleryModal({ item, onClose, onSave, showToast }) {
                   label=""
                   value=""
                   onChange={(url) => addImageRow(url)}
-                  apiKey={data?.contact?.imgbb_api_key}
+                  apiKey={imgbbApiKey}
                   showToast={showToast}
                 />
                 <button type="button" className="button button-ghost button-sm" onClick={() => addImageRow()}>
@@ -2385,7 +2060,7 @@ function GalleryModal({ item, onClose, onSave, showToast }) {
                     label=""
                     value={imgUrl}
                     onChange={(url) => updateImageRow(idx, url)}
-                    apiKey={data?.contact?.imgbb_api_key}
+                    apiKey={imgbbApiKey}
                     showToast={showToast}
                   />
                   {form.images.length > 1 && (
@@ -2411,7 +2086,7 @@ function GalleryModal({ item, onClose, onSave, showToast }) {
   );
 }
 
-function PersonModal({ modalData, org, onClose, onSaveOrg, showToast }) {
+function PersonModal({ modalData, org, onClose, onSaveOrg, showToast, imgbbApiKey }) {
   const { type, item, index } = modalData;
   const [form, setForm] = useState(item);
   const update = (k, v) => setForm({ ...form, [k]: v });
@@ -2468,7 +2143,7 @@ function PersonModal({ modalData, org, onClose, onSaveOrg, showToast }) {
                 label=""
                 value={form.foto || ""}
                 onChange={(url) => update("foto", url)}
-                apiKey={data?.contact?.imgbb_api_key}
+                apiKey={imgbbApiKey}
                 showToast={showToast}
               />
                 </div>
@@ -2489,7 +2164,7 @@ function PersonModal({ modalData, org, onClose, onSaveOrg, showToast }) {
   );
 }
 
-function DivisionModal({ modalData, org, onClose, onSaveOrg }) {
+function DivisionModal({ modalData, org, onClose, onSaveOrg, showToast, imgbbApiKey }) {
   const { item, index } = modalData;
   const [form, setForm] = useState({ ...item, anggota: item.anggota || [] });
   const [newMember, setNewMember] = useState("");
@@ -2552,7 +2227,7 @@ function DivisionModal({ modalData, org, onClose, onSaveOrg }) {
                 label=""
                 value={form.foto || ""}
                 onChange={(url) => update("foto", url)}
-                apiKey={data?.contact?.imgbb_api_key}
+                apiKey={imgbbApiKey}
                 showToast={showToast}
               />
             </div>
@@ -2692,45 +2367,3 @@ function GuideEditModal({ guide, guidesList, onClose, onSaveGuides }) {
   );
 }
 
-function FaqEditModal({ modalData, faqList, onClose, onSaveFaq }) {
-  const { index, question, answer } = modalData;
-  const [q, setQ] = useState(question || "");
-  const [a, setA] = useState(answer || "");
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const list = [...(faqList || [])];
-    const item = { question: q, answer: a };
-    if (index >= 0) list[index] = item;
-    else list.push(item);
-    onSaveFaq(list);
-  };
-
-  return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-modal" role="dialog">
-        <div className="modal-head">
-          <div>
-            <span className="eyebrow">{index >= 0 ? "EDIT FAQ" : "TAMBAH FAQ"}</span>
-            <h2>Pertanyaan & Jawaban</h2>
-          </div>
-          <button className="close-button" onClick={onClose}><X size={20} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="modal-body-form">
-          <label className="field full">
-            <span>Pertanyaan</span>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Apa itu PMR Wira?" required />
-          </label>
-          <label className="field full">
-            <span>Jawaban / Penjelasan</span>
-            <textarea rows="4" value={a} onChange={(e) => setA(e.target.value)} placeholder="Palang Merah Remaja adalah..." required />
-          </label>
-          <div className="modal-actions">
-            <button type="button" className="button button-ghost" onClick={onClose}>Batal</button>
-            <button type="submit" className="button button-primary"><Check size={16} /> Simpan FAQ</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
