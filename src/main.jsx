@@ -160,7 +160,7 @@ function App() {
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}), { once: true });
+      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => { }), { once: true });
     }
     loadContent().then((data) => {
       setContent(data);
@@ -671,13 +671,13 @@ function PublicRosterModal({ roster, onClose }) {
             <div className="wa-share-bar" style={{ margin: "6px 0" }}>
               <div className="wa-share-info">
                 <MessageCircle size={18} />
-                <span>Bagikan daftar {tab === "uks" ? "Piket Jaga UKS" : "Jaga Upacara"} ini ke WhatsApp (Format rapi tanpa emoji + tautan resmi):</span>
+                <span style={{ color: "var(--red)" }}>Bagikan daftar {tab === "uks" ? "Piket Jaga UKS" : "Jaga Upacara"} ini ke WhatsApp (Format rapi + tautan resmi):</span>
               </div>
               <div className="wa-share-btns">
                 <button type="button" className="button button-wa button-sm" onClick={handleModalWA}>
                   <Send size={14} /> Share ke WhatsApp
                 </button>
-                <button type="button" className="button button-ghost button-sm" onClick={handleModalCopy}>
+                <button type="button" className="button button-sm" onClick={handleModalCopy}>
                   <Copy size={14} /> Salin Teks & Link
                 </button>
               </div>
@@ -707,7 +707,7 @@ function PublicRosterModal({ roster, onClose }) {
             ) : (
               <div style={{ display: "grid", gap: "14px" }}>
                 <div className="fair-badge" style={{ alignSelf: "start" }}>
-                  <Check size={16} /> DISTRIBUSI SECARA ALGORITMA TERBUKTI 100% ADIL (Selisih frekuensi antar anggota ≤ 1)
+                  <Check size={16} /> DISTRIBUSI SECARA ALGORITMA SUDAH DI TES ADIL (Selisih frekuensi antar anggota ≤ 1)
                 </div>
                 <p className="modal-muted">Algoritma Fair Shuffling kami mendistribusikan shift agar setiap anggota mendapatkan jumlah giliran yang seimbang dalam sebulan, tanpa jadwal berturut-turut pada hari berikutnya dan tanpa bentrok hari Senin antara UKS dan Lapangan.</p>
                 <div className="audit-chips">
@@ -740,13 +740,13 @@ function UksHomepageBanner({ uksInfo, goTo }) {
     <section className="container uks-home-banner-section">
       <div className="uks-home-banner">
         <div className="uhb-left">
-          <span className="eyebrow eyebrow-light"><Sparkles size={14} /> LAYANAN KESEHATAN SEKOLAH · 100% GRATIS</span>
+          <span className="eyebrow eyebrow-light"><Sparkles size={14} /> LAYANAN KESEHATAN SEKOLAH · GRATIS</span>
           <h2>{info.welcome_banner?.title || "Ruang UKS Terbuka untuk Seluruh Siswa-Siswi."}</h2>
           <p>{info.welcome_banner?.subtitle || "Merasa kurang sehat atau butuh obat pusing/demam saat jam pelajaran? Datanglah ke Ruang UKS. Semua pemeriksaan & stok obat P3K disediakan secara gratis."}</p>
           <div className="uhb-tags">
             <span><Check size={14} /> Paracetamol & Antasida Gratis</span>
             <span><Check size={14} /> Minyak Kayu Putih & Betadine</span>
-            <span><Check size={14} /> Cek Suhu & Tensi Darah</span>
+            <span><Check size={14} /> Cek Tinggi Berat Badan & Tensi Darah</span>
             <span><Check size={14} /> Ranjang Istirahat UKS</span>
           </div>
         </div>
@@ -892,7 +892,152 @@ function UksServicePage({ content, goTo }) {
 }
 
 function Home({ content, goTo, onGuide }) {
+  const sliderRef = useRef(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const heroImages = [
+    '/gudang/gallery/1.jpg',
+    '/gudang/gallery/2.jpg',
+    '/gudang/gallery/3.jpg',
+    '/gudang/gallery/4.jpg',
+    '/gudang/gallery/5.jpg',
+    '/gudang/gallery/6.jpg',
+    '/gudang/gallery/7.jpg',
+    '/gudang/gallery/8.jpg',
+  ];
+
+  // Duplikasi gambar 3x untuk seamless loop
+  const loopedImages = [...heroImages, ...heroImages, ...heroImages];
+
+  // Auto scroll smooth
+  useEffect(() => {
+    if (isPaused || isDragging) return;
+
+    const slider = sliderRef.current;
+    if (!slider) return;
+
+    let animationId;
+    let lastTime = performance.now();
+    const speed = 0.05; // pixel per millisecond (smooth speed)
+
+    const animate = (currentTime) => {
+      const deltaTime = currentTime - lastTime;
+      lastTime = currentTime;
+
+      slider.scrollLeft += speed * deltaTime;
+
+      // Reset ke tengah saat mencapai akhir (untuk seamless loop)
+      const singleSetWidth = slider.scrollWidth / 3;
+      if (slider.scrollLeft >= singleSetWidth * 2) {
+        slider.scrollLeft = singleSetWidth;
+      } else if (slider.scrollLeft <= 0) {
+        slider.scrollLeft = singleSetWidth;
+      }
+
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animationId = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animationId);
+  }, [isPaused, isDragging]);
+
+  // Mouse drag
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setStartX(e.pageX - sliderRef.current.offsetLeft);
+    setScrollLeft(sliderRef.current.scrollLeft);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - sliderRef.current.offsetLeft;
+    const walk = (x - startX) * 2;
+    sliderRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const handleMouseUpOrLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Touch events
+  const handleTouchStart = (e) => {
+    setStartX(e.touches[0].pageX - sliderRef.current.offsetLeft);
+    setScrollLeft(sliderRef.current.scrollLeft);
+  };
+
+  const handleTouchMove = (e) => {
+    const x = e.touches[0].pageX - sliderRef.current.offsetLeft;
+    const walk = (x - startX) * 2;
+    sliderRef.current.scrollLeft = scrollLeft - walk;
+  };
+
   return <>
+    {/* ===== INFINITE LOOP SLIDER ===== */}
+    <div
+      ref={sliderRef}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUpOrLeave}
+      onMouseLeave={handleMouseUpOrLeave}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseOut={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      style={{
+        position: 'relative',
+        width: '100%',
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+        cursor: isDragging ? 'grabbing' : 'grab',
+        borderRadius: '15px',
+        marginBottom: '20px',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+      }}
+    >
+      <style>{`
+        div::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+
+      <div style={{ display: 'flex', width: 'max-content' }}>
+        {loopedImages.map((img, i) => (
+          <div
+            key={i}
+            style={{
+              flexShrink: 0,
+              width: '100%',
+              maxWidth: '300px',
+              aspectRatio: '4 / 5',
+              position: 'relative',
+              userSelect: 'none',
+            }}
+          >
+            <img
+              src={img}
+              alt={`Slide ${(i % heroImages.length) + 1}`}
+              draggable={false}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+                pointerEvents: 'none',
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+    {/* ===== END INFINITE LOOP SLIDER ===== */}
     <section className="hero-section page-section">
       <div className="hero-grid container">
         <div className="hero-copy">
@@ -910,7 +1055,7 @@ function Home({ content, goTo, onGuide }) {
           <div className="art-card art-card-top"><span className="art-icon"><ShieldCheck size={19} /></span><span><b>SIAGA</b><small>Belajar pertolongan pertama</small></span></div>
           <div className="art-card art-card-bottom"><HeartPulse size={21} /><span><b>56</b><small>Aksi sosial terlaksana</small></span></div>
           <div className="art-badge"><img src="/gudang/logo/pmr-logo.webp" alt="" /><span><b>PMR</b><small>WIRA</small></span></div>
-          <div className="art-label">BE<br />THE<br /><strong>HELP</strong></div>
+          <div className="art-label">BE<br />THE<br />HELP</div>
         </div>
       </div>
     </section>
@@ -942,7 +1087,7 @@ function Profile({ content, goTo }) {
       <span className="phl-icon"><Landmark size={20} /></span>
       <span className="phl-text">
         <strong>Baru: Halaman Sejarah & Para Pendiri</strong>
-        <small>Kenali perjalanan PMR Wira sejak 2010 dan orang-orang di balik berdirinya.</small>
+        <small>Kenali perjalanan PMR Wira sejak 20-- dan orang-orang di balik berdirinya.</small>
       </span>
       <span className="phl-cta">Buka halaman <ChevronRight size={16} /></span>
     </button>
@@ -971,7 +1116,7 @@ const HISTORY_TIMELINE = [
     tone: "red",
   },
   {
-    year: "2010",
+    year: "20--",
     icon: "flag",
     title: "PMR Wira SMKN 4 Banjarmasin resmi berdiri",
     text: "Diprakarsai guru pembina dan siswa yang peduli kesehatan sekolah serta kesiapsiagaan bencana, PMR Wira menjadi ekstrakurikuler kemanusiaan resmi sekolah.",
@@ -988,23 +1133,23 @@ const HISTORY_TIMELINE = [
     year: "2026",
     icon: "sparkles",
     title: "Memasuki era digital",
-    text: "Website resmi, jadwal jaga digital, dan portal informasi dikembangkan oleh tim inti PMR periode 2026/2027 bersama siswa RPL/TKJ agar informasi mudah diakses semua orang.",
+    text: "Website resmi, jadwal jaga digital, dan portal informasi dikembangkan oleh siswa kelas X RPL 1 (Muhammad Thio Saputra) tim inti PMR (Sekretaris 2) periode 2026/2027 agar informasi mudah diakses semua orang.",
     tone: "blue",
   },
 ];
 
-const HISTORY_FOUNDERS = [
+const getHistoryFounders = (org) => [
   {
     icon: "graduation-cap",
-    role: "Pendiri & Pembina",
-    name: "Winda Hairani, S.Pd.",
+    role: "Pendiri & Pembina Pertama",
+    name: "",
     text: "Guru yang memprakarsai berdirinya PMR Wira SMKN 4 Banjarmasin dan terus membimbing generasi relawan hingga hari ini.",
     note: "Penanggung jawab kurikulum & pelatihan P3K sejak awal berdiri.",
   },
   {
     icon: "users",
     role: "Pendukung Pendirian",
-    name: "Eka Lisdyawati, M.Pd. & Angkatan Perdana",
+    name: "Ibu Eka Lisdyawati, M.Pd. & Angkatan Perdana",
     text: "Wakasek Kesiswaan bersama siswa-siswi angkatan pertama yang meletakkan fondasi semangat “Humanis • Peduli • Tanggap”.",
     note: "Program kerja awal: pelatihan dasar P3K, piket UKS rutin, dan bakti sosial tahunan.",
   },
@@ -1012,14 +1157,14 @@ const HISTORY_FOUNDERS = [
     icon: "heart-handshake",
     role: "Penerus Lintas Angkatan",
     name: "Kepengurusan dari Masa ke Masa",
-    text: "Setiap periode kepengurusan melanjutkan estafet kepemimpinan — menjaga latihan rutin, piket UKS, dan aksi sosial tetap hidup.",
-    note: "Periode aktif saat ini: 2026/2027 di bawah kepemimpinan Ketua Adilla Hafiza.",
+    text: "Setiap periode kepengurusan melanjutkan estafet kepemimpinan - menjaga latihan rutin, piket UKS, dan aksi sosial tetap hidup.",
+    note: <>Periode aktif saat ini: <strong>{org?.periode}</strong> di bawah kepemimpinan <strong>{org?.leaders?.find((leader) => leader.role === "Ketua")?.nama}</strong></>,
   },
   {
     icon: "sparkles",
     role: "Pengembang Digital 2026",
-    name: "Tim Inti PMR & Siswa RPL/TKJ",
-    text: "Website resmi ini dirancang dan dibangun oleh tim inti PMR Wira periode 2026/2027 bersama siswa yang berminat di bidang teknologi.",
+    name: "Muhammad Thio Saputra",
+    text: "Website resmi ini dirancang dan dibangun oleh siswa kelas X RPL 1 tim inti PMR Wira dibidang sekretaris (Muhammad Thio Saputra) periode 2026/2027.",
     note: "Tujuan: informasi publik yang modern, cepat, dan mudah diakses di semua perangkat.",
   },
 ];
@@ -1031,13 +1176,13 @@ function History({ content, goTo }) {
       <SectionHeading
         kicker="Sejarah & Para Pendiri"
         title="Lahir dari kepedulian."
-        description="Halaman khusus perjalanan PMR Wira SMKN 4 Banjarmasin — dari gagasan sederhana menjadi gerakan kemanusiaan yang hidup di sekolah."
+        description="Halaman khusus perjalanan PMR Wira SMKN 4 Banjarmasin - dari gagasan sederhana menjadi gerakan kemanusiaan yang hidup di sekolah."
       />
 
       {/* Hero sejarah */}
       <div className="history-hero">
         <div className="hh-copy">
-          <span className="history-year-pill"><HistoryIcon size={15} /> SEJAK 2010</span>
+          <span className="history-year-pill"><HistoryIcon size={15} /> SEJAK 20--</span>
           <h2>PMR Wira <em>SMKN 4 Banjarmasin</em></h2>
           <p>
             Palang Merah Remaja (PMR) tingkat Wira adalah wadah pembinaan remaja oleh PMI untuk siswa SMA/sederajat.
@@ -1066,17 +1211,17 @@ function History({ content, goTo }) {
         <div className="history-level-card">
           <span className="level-badge level-mula">MULA</span>
           <strong>PMR Mula</strong>
-          <p>Tingkat sekolah dasar (SD) — pengenalan nilai kemanusiaan & kebersihan.</p>
+          <p>Tingkat sekolah dasar (SD) - pengenalan nilai kemanusiaan & kebersihan.</p>
         </div>
         <div className="history-level-card">
           <span className="level-badge level-madya">MADYA</span>
           <strong>PMR Madya</strong>
-          <p>Tingkat sekolah menengah pertama (SMP) — keterampilan dasar pertolongan pertama.</p>
+          <p>Tingkat sekolah menengah pertama (SMP) - keterampilan dasar pertolongan pertama.</p>
         </div>
         <div className="history-level-card history-level-active">
           <span className="level-badge level-wira">WIRA · KAMI</span>
           <strong>PMR Wira</strong>
-          <p>Tingkat SMA/SMK sederajat — keterampilan lanjutan, kepemimpinan & aksi nyata.</p>
+          <p>Tingkat SMA/SMK sederajat - keterampilan lanjutan, kepemimpinan & aksi nyata.</p>
         </div>
       </div>
 
@@ -1102,7 +1247,7 @@ function History({ content, goTo }) {
         <SectionHeading kicker="Orang-orang di baliknya" title="Pendiri & penerus perjuangan" description="PMR Wira berdiri karena keberanian mereka memulai — dan terus hidup karena kesetiaan para penerusnya." />
       </div>
       <div className="founders-grid">
-        {HISTORY_FOUNDERS.map((founder) => (
+        {getHistoryFounders(org).map((founder) => (
           <article className="founder-card" key={founder.name}>
             <div className="founder-head">
               <span className="founder-icon"><Icon name={founder.icon} size={21} /></span>
@@ -1118,7 +1263,7 @@ function History({ content, goTo }) {
       {/* Penutup */}
       <div className="history-closing">
         <Quote size={34} />
-        <blockquote>“Siamo tutti fratelli — kita semua bersaudara.”</blockquote>
+        <blockquote>“Siamo tutti fratelli - kita semua bersaudara.”</blockquote>
         <span>Semboyan gerakan Palang Merah yang kami jaga di setiap kegiatan.</span>
         <div className="history-closing-actions">
           <button className="button button-primary" onClick={() => goTo("profil")}>
@@ -1232,7 +1377,7 @@ function SectionHeading({ kicker, title, description, action }) { return <div cl
 function NewsCard({ news, featured }) { return <article className={`news-card ${featured ? "featured" : ""}`}><div className="news-image"><img src={news.image} alt="" loading="lazy" decoding="async" /><span>{news.category}</span></div><div className="news-body"><small>{news.date}</small><h3>{news.title}</h3><p>{news.excerpt}</p><span className="read-more">Baca selengkapnya <ArrowRight size={15} /></span></div></article>; }
 function EventCard({ event }) { return <article className="event-card"><div className="event-date"><CalendarDays size={18} /><strong>{event.date}</strong><span>{event.time}</span></div><div className="event-detail"><span className="tag">{event.status}</span><h3>{event.title}</h3><p>{event.description}</p><small><MapPin size={14} /> {event.location}</small></div></article>; }
 function PersonCard({ person, muted }) { return <article className={`person-card ${muted ? "person-muted" : ""}`}>{person.foto ? <img src={person.foto} alt={person.nama} /> : <div className="person-avatar"><Icon name={person.icon} size={23} /></div>}<div className="person-content"><span>{person.role || person.jabatan}</span><h3>{person.nama || "Akan diumumkan"}</h3><p>{person.deskripsi}</p></div></article>; }
-function DivisionCard({ division }) { const [open, setOpen] = useState(false); return <article className={`division-card ${open ? "open" : ""}`}><button onClick={() => setOpen(!open)} aria-expanded={open}><span className="division-icon">{division.foto ? <img src={division.foto} alt={division.divisi} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"10px"}} /> : <Icon name={division.icon} size={20} />}</span><span><small>DIVISI</small><strong>{division.divisi}</strong></span><ChevronDown size={18} /></button><div className="member-list">{division.anggota?.map((member) => <span key={member}><UserRound size={13} />{member}</span>)}</div></article>; }
+function DivisionCard({ division }) { const [open, setOpen] = useState(false); return <article className={`division-card ${open ? "open" : ""}`}><button onClick={() => setOpen(!open)} aria-expanded={open}><span className="division-icon">{division.foto ? <img src={division.foto} alt={division.divisi} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "10px" }} /> : <Icon name={division.icon} size={20} />}</span><span><small>DIVISI</small><strong>{division.divisi}</strong></span><ChevronDown size={18} /></button><div className="member-list">{division.anggota?.map((member) => <span key={member}><UserRound size={13} />{member}</span>)}</div></article>; }
 function ContactLine({ icon, text, href }) { const IconComponent = icon === "map" ? MapPin : icon === "phone" ? Phone : Mail; const content = <><IconComponent size={17} /><span>{text}</span></>; return href ? <a className="contact-line" href={href}>{content}</a> : <div className="contact-line">{content}</div>; }
 
 /* =========================================================

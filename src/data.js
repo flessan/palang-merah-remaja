@@ -23,9 +23,6 @@ export const assetLibrary = [
   { path: "/gudang/gallery/IMG-20260129-WA0037_ywu4kh_eldskn.avif", label: "Latihan Keterampilan" },
   { path: "/gudang/gallery/juara.avif", label: "Foto Juara / Prestasi" },
   { path: "/gudang/gallery/pixnova-8ec1cb637215f0ce9cd86e4da3453792_gcss38.avif", label: "Ilustrasi Aksi" },
-  { path: "/gudang/org/wakil_1782458849_771dbdcc.jpeg", label: "Foto Wakil Ketua" },
-  { path: "/gudang/org/wakil_sekretaris_1784116447_104d55b6.jpeg", label: "Foto Sekretaris" },
-  { path: "/gudang/org/kord_1784120541_e1bb0122.jpeg", label: "Foto Kord Humas" },
   { path: "/gudang/logo/pmr-logo.webp", label: "Logo PMR Wira" },
 ];
 
@@ -85,7 +82,7 @@ export const defaultRoster = {
       tanggal: "Senin, 27 Juli 2026",
       hari: "Senin",
       petugas: [
-        "Muhammad Sultan Ariady XI-TKJ 1",
+        "Muhammad Sultan Ariady XI-RPL 1",
         "Nur Aleesya Nashirah XI-A3",
         "Zahrah Fitri Aisy XI-DPB 2",
         "Wulandari XI-HTL 1",
@@ -107,7 +104,7 @@ export const defaultUksInfo = {
     highlight: "Semua pemeriksaan dasar dan obat-obatan P3K di Ruang UKS disediakan secara 100% GRATIS untuk seluruh siswa-siswi aktif."
   },
   jam_layanan: "Senin – Jumat selama jam pelajaran berlangsung (07.00 – 15.30 WITA)",
-  lokasi: "Lantai 1 Ruang UKS SMKN 4 Banjarmasin (Dekat lapangan utama / Kantor guru)",
+  lokasi: "Lantai 1 Ruang UKS SMKN 4 Banjarmasin (Dekat lapangan utama / Disamping aula sekolah)",
   stok_obat_dan_alat: [
     { id: 1, kategori: "Obat Minum Ringan", nama: "Paracetamol / Tablet Pereda Nyeri & Demam", kegunaan: "Meredakan sakit kepala, pusing, demam ringan, dan nyeri otot akut.", status: "Tersedia & Gratis" },
     { id: 2, kategori: "Obat Minum Ringan", nama: "Antasida / Obat Maag & Asam Lambung", kegunaan: "Meredakan nyeri ulu hati, kembung, perih, dan mual akibat telat makan.", status: "Tersedia & Gratis" },
@@ -120,7 +117,7 @@ export const defaultUksInfo = {
     { id: 9, kategori: "Perban & P3K", nama: "Mitella (Kain Segitiga P3K) & Bidai / Spalk Kayu", kegunaan: "Fiksasi darurat saat terjadi cedera terkilir, keseleo berat, atau dugaan patah tulang.", status: "Tersedia & Gratis" },
     { id: 10, kategori: "Alat Medis Dasar", nama: "Termometer Digital & Tensi Darah (Sphygmomanometer)", kegunaan: "Pemeriksaan akurat tanda vital (suhu tubuh & tekanan darah) oleh petugas UKS.", status: "Tersedia & Gratis" },
     { id: 11, kategori: "Alat Medis Dasar", nama: "Oxymeter & Tabung Oksigen Portable (Oxycan)", kegunaan: "Bantuan darurat pernapasan bagi siswa yang mengalami sesak napas, asma, atau kelelahan berat.", status: "Tersedia & Gratis" },
-    { id: 12, kategori: "Fasilitas Istirahat", nama: "Tempat Tidur Istirahat UKS & Kursi Roda Darurat", kegunaan: "Fasilitas baring sementara bagi siswa yang pingsan, kram perut, atau sakit sebelum penjemputan.", status: "Tersedia & Gratis" }
+    { id: 12, kategori: "Fasilitas Istirahat", nama: "Tempat Tidur Istirahat UKS & Tandu Lipat Darurat", kegunaan: "Fasilitas baring sementara bagi siswa yang pingsan, kram perut, atau sakit sebelum penjemputan.", status: "Tersedia & Gratis" }
   ],
   prosedur_kunjungan: [
     { step: "Izin Guru Mata Pelajaran", deskripsi: "Minta izin secara sopan kepada guru yang sedang mengajar di kelas sebelum menuju ke Ruang UKS." },
@@ -139,7 +136,7 @@ export const defaultUksInfo = {
 export const fallbackContent = {
   source: "demo",
   stats: [
-    { value: 342, label: "Total alumni", icon: "users" },
+    { value: 442, label: "Total alumni", icon: "users" },
     { value: 120, label: "Relawan aktif", icon: "user-round-check" },
     { value: 56, label: "Aksi sosial", icon: "heart-handshake" },
   ],
@@ -259,14 +256,16 @@ export const fallbackContent = {
       { role: "Pembina PMR", nama: "Winda Hairani, S.Pd.", icon: "shield-check", deskripsi: "Guru pembimbing ekstrakurikuler PMR Wira SMKN 4 Banjarmasin." },
       { role: "Ketua", nama: "Adilla Hafiza", icon: "crown", deskripsi: "Pemimpin eksekutif dan penanggung jawab utama seluruh program kerja PMR Wira." },
       { role: "Wakil Ketua", nama: "Assyifa Qolbi", icon: "users", foto: "/gudang/org/wakil_1782458849_771dbdcc.jpeg", deskripsi: "Pendamping ketua dalam koordinasi internal dan pengawasan kinerja." },
-      { role: "Sekretaris", nama: "Muhammad Thio Saputra", icon: "notebook-pen", foto: "/gudang/org/wakil_sekretaris_1784116447_104d55b6.jpeg", deskripsi: "Penanggung jawab administrasi dan dokumentasi organisasi." },
-      { role: "Bendahara", nama: "Erinne Berlianta Manik", icon: "wallet-cards", deskripsi: "Pengelola keuangan dan transparansi anggaran organisasi." },
+      { role: "Sekretaris 1", nama: "Eliana Nur Khanza", icon: "notebook-pen", foto: "/gudang/org/sekretaris_1784116187_3f6c9912.jpeg", deskripsi: "Penanggung jawab administrasi dan dokumentasi organisasi." },
+      { role: "Sekretaris 2", nama: "Muhammad Thio Saputra", icon: "notebook-pen", foto: "/gudang/org/wakil_sekretaris_1784116447_104d55b6.jpeg", deskripsi: "Penanggung jawab administrasi dan dokumentasi organisasi." },
+      { role: "Bendahara 1", nama: "Siti Zahra Naila Husna", icon: "wallet-cards", foto: "/gudang/org/bendahara_1784116341_f8728168.jpeg", deskripsi: "Pengelola keuangan dan transparansi anggaran organisasi." },
+      { role: "Bendahara 2", nama: "Erinne Berlianta Manik", icon: "wallet-cards", foto: "/gudang/org/bendahara_1784116821_f8728168.jpeg", deskripsi: "Pengelola keuangan dan transparansi anggaran organisasi." },
     ],
     divisions: [
-      { divisi: "Unit Kesehatan Siswa", icon: "heart-pulse", anggota: ["Syifa Maurinjia", "Nazma Az Zahra", "Nahdhah", "Andi Nabilla Ramadani", "Maulidia Hayuningdiah", "Naufa Azmi Khairizqa", "Melsia Oktavia"] },
-      { divisi: "Hubungan Masyarakat", icon: "megaphone", foto: "/gudang/org/kord_1784120541_e1bb0122.jpeg", anggota: ["Eva Regina Putri Riyanti", "Lisa Erfina", "Naylah Azkiya", "Rama", "Alia Rahmawati", "Ferdi Herlino", "Almira Fakhriah Hasan"] },
-      { divisi: "Pengembangan Sumber Daya Manusia", icon: "users-round", anggota: ["A. Ustman Abdullah", "Kirani", "Halissa Azzahra", "Delya Ananda", "Lionel Abdi Darma W.", "Selviana Dewi", "Muhammad Sultan Ariady"] },
-      { divisi: "Sosial Masyarakat", icon: "hand-heart", anggota: ["Nur Aleesya Nashirah", "Nabila Rosydah Zahro", "Zahrah Fitri Aisy", "Wulandari", "Lietya Aisya", "Firy al Humairoh Rahmah", "Sofha Raihana Kamelia"] },
+      { divisi: "Unit Kesehatan Siswa", icon: "heart-pulse", foto: "/gudang/org/uks_1784124308_e5164f19.jpeg", anggota: ["Syifa Maurinjia", "Nazma Az Zahra", "Nahdhah", "Andi Nabilla Ramadani", "Maulidia Hayuningdiah", "Naufa Azmi Khairizqa", "Melsia Oktavia"] },
+      { divisi: "Hubungan Masyarakat", icon: "megaphone", foto: "/gudang/org/humas_1784124684_69633f9d.jpeg", anggota: ["Eva Regina Putri Riyanti", "Lisa Erfina", "Naylah Azkiya", "Rama", "Alia Rahmawati", "Ferdi Herlino", "Almira Fakhriah Hasan"] },
+      { divisi: "Pengembangan Sumber Daya Manusia", icon: "users-round", foto: "/gudang/org/psdm_1784124722_165e0558.jpeg", anggota: ["A. Ustman Abdullah", "Kirani", "Halissa Azzahra", "Delya Ananda", "Lionel Abdi Darma W.", "Selviana Dewi", "Muhammad Sultan Ariady"] },
+      { divisi: "Sosial Masyarakat", icon: "hand-heart", foto: "/gudang/org/sosmas_1784124748_66d7612c.jpeg", anggota: ["Nur Aleesya Nashirah", "Nabila Rosydah Zahro", "Zahrah Fitri Aisy", "Wulandari", "Lietya Aisya", "Firy al Humairoh Rahmah", "Sofha Raihana Kamelia"] },
     ],
   },
   contact: {
