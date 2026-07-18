@@ -10,132 +10,6 @@ const galleryTwo = [
   "/gudang/gallery/latgab/WhatsApp_Image_2026-02-02_at_21.17.49_1_efbbiz.avif",
 ];
 
-export const assetLibrary = [
-  { path: "/gudang/gallery/latgab/WhatsApp_Image_2026-02-02_at_21.17.48_1_elixib.avif", label: "Latgab Pramuka MAN 3 (1)" },
-  { path: "/gudang/gallery/latgab/WhatsApp_Image_2026-02-02_at_21.17.48_tbchum.avif", label: "Latgab Pramuka MAN 3 (2)" },
-  { path: "/gudang/gallery/latgab/WhatsApp_Image_2026-02-02_at_21.17.48_2_gzls5q.avif", label: "Latgab Pramuka MAN 3 (3)" },
-  { path: "/gudang/gallery/latgab/WhatsApp_Image_2026-02-02_at_21.17.49_nl0mgr.avif", label: "Latgab PMR & Pramuka (1)" },
-  { path: "/gudang/gallery/latgab/WhatsApp_Image_2026-02-02_at_21.17.49_2_allwc1.avif", label: "Latgab PMR & Pramuka (2)" },
-  { path: "/gudang/gallery/latgab/WhatsApp_Image_2026-02-02_at_21.17.49_1_efbbiz.avif", label: "Latgab PMR & Pramuka (3)" },
-  { path: "/gudang/gallery/IMG-20260129-WA0031_icpj2a_fqfute.avif", label: "Aksi Kebersamaan (1)" },
-  { path: "/gudang/gallery/IMG-20260129-WA0032_p6mnxz_ggclja.avif", label: "Aksi Kebersamaan (2)" },
-  { path: "/gudang/gallery/IMG-20260129-WA0035_fwkslt_jjng7f.avif", label: "Aksi Kebersamaan (3)" },
-  { path: "/gudang/gallery/IMG-20260129-WA0037_ywu4kh_eldskn.avif", label: "Latihan Keterampilan" },
-  { path: "/gudang/gallery/juara.avif", label: "Foto Juara / Prestasi" },
-  { path: "/gudang/gallery/pixnova-8ec1cb637215f0ce9cd86e4da3453792_gcss38.avif", label: "Ilustrasi Aksi" },
-  { path: "/gudang/org/wakil_1782458849_771dbdcc.jpeg", label: "Foto Wakil Ketua" },
-  { path: "/gudang/org/wakil_sekretaris_1784116447_104d55b6.jpeg", label: "Foto Sekretaris" },
-  { path: "/gudang/org/kord_1784120541_e1bb0122.jpeg", label: "Foto Kord Humas" },
-  { path: "/gudang/logo/pmr-logo.webp", label: "Logo PMR Wira" },
-];
-
-export const defaultRoster = {
-  periode: "Juli 2026",
-  bulan_label: "Juli 2026",
-  keterangan: "Jadwal resmi penjagaan Ruang UKS (Senin–Jumat) dan piket lapangan upacara (Setiap Senin) untuk seluruh anggota aktif PMR Wira SMKN 4 Banjarmasin.",
-  petugas_per_shift_uks: 1,
-  petugas_per_shift_lapangan: 8,
-  uks_schedule: [
-    { tanggal: "Senin, 13 Juli 2026", hari: "Senin", petugas: ["Muhammad Yorda Herdana (XI-RPL 1)"] },
-    { tanggal: "Selasa, 14 Juli 2026", hari: "Selasa", petugas: ["Muhammad Akeyla (XI-HTL 2)"] },
-    { tanggal: "Rabu, 15 Juli 2026", hari: "Rabu", petugas: ["Fitri Rahmadhani (XI-A2)"] },
-    { tanggal: "Kamis, 16 Juli 2026", hari: "Kamis", petugas: ["Nahdhah (XI-A3)"] },
-    { tanggal: "Jumat, 17 Juli 2026", hari: "Jumat", petugas: ["Nabila Rosydah Zahro (XI-DPB 2)"] },
-    { tanggal: "Senin, 20 Juli 2026", hari: "Senin", petugas: ["Syifa Maurinja (XI-DPB 3)"] },
-    { tanggal: "Selasa, 21 Juli 2026", hari: "Selasa", petugas: ["Maulidia Hayuningdiah (XI-ULW)"] },
-    { tanggal: "Rabu, 22 Juli 2026", hari: "Rabu", petugas: ["Assyifa Qolbi (XI-KC)"] },
-    { tanggal: "Kamis, 23 Juli 2026", hari: "Kamis", petugas: ["Eva Regina Putri Riyanti (XI-DPB 2)"] },
-    { tanggal: "Jumat, 24 Juli 2026", hari: "Jumat", petugas: ["Almira Fakhriah Hasan (XI-DPB 2)"] },
-    { tanggal: "Senin, 27 Juli 2026", hari: "Senin", petugas: ["Syailha Nor Rahma (XI-A2)"] },
-    { tanggal: "Selasa, 28 Juli 2026", hari: "Selasa", petugas: ["Lionel Abdi Dharma Wicaksono (XI-A2)"] },
-    { tanggal: "Rabu, 29 Juli 2026", hari: "Rabu", petugas: ["A. Ustman Abdullah (XI-RPL 2)"] },
-    { tanggal: "Kamis, 30 Juli 2026", hari: "Kamis", petugas: ["Kirani (XI-HTL 1)"] },
-    { tanggal: "Jumat, 31 Juli 2026", hari: "Jumat", petugas: ["Halissa Azzahra (XI-A1)"] },
-  ],
-  lapangan_schedule: [
-    {
-      tanggal: "Senin, 13 Juli 2026",
-      hari: "Senin",
-      petugas: [
-        "Eva Regina Putri Riyanti XI-DPB 2",
-        "Almira Fakhriah Hasan XI-DPB 2",
-        "Assyifa Qolbi XI-KC",
-        "Muhammad Akeyla XI-HTL 2",
-        "Maulidia Hayuningdiah XI-ULW",
-        "Syailha Nor Rahma XI-A2",
-        "Syifa Maurinja XI-DPB 3",
-        "Lionel Abdi Dharma Wicaksono XI-A2"
-      ]
-    },
-    {
-      tanggal: "Senin, 20 Juli 2026",
-      hari: "Senin",
-      petugas: [
-        "Muhammad Yorda Herdana XI-RPL 1",
-        "Fitri Rahmadhani XI-A2",
-        "Nahdhah XI-A3",
-        "Nabila Rosydah Zahro XI-DPB 2",
-        "A. Ustman Abdullah XI-RPL 2",
-        "Kirani XI-HTL 1",
-        "Halissa Azzahra XI-A1",
-        "Selviana Dewi XI-DPB 1"
-      ]
-    },
-    {
-      tanggal: "Senin, 27 Juli 2026",
-      hari: "Senin",
-      petugas: [
-        "Muhammad Sultan Ariady XI-TKJ 1",
-        "Nur Aleesya Nashirah XI-A3",
-        "Zahrah Fitri Aisy XI-DPB 2",
-        "Wulandari XI-HTL 1",
-        "Lietya Aisya XI-KC",
-        "Firy al Humairoh Rahmah XI-A1",
-        "Sofha Raihana Kamelia XI-RPL 2",
-        "Andi Nabilla Ramadani XI-ULW"
-      ]
-    }
-  ],
-  is_published: true,
-  updated_at: "2026-07-17T11:00:00Z"
-};
-
-export const defaultUksInfo = {
-  welcome_banner: {
-    title: "Ruang UKS Terbuka untuk Seluruh Siswa-Siswi",
-    subtitle: "Merasa kurang sehat, pusing, demam, atau butuh pertolongan pertama saat berada di sekolah? Jangan ragu untuk datang ke Ruang UKS SMKN 4 Banjarmasin.",
-    highlight: "Semua pemeriksaan dasar dan obat-obatan P3K di Ruang UKS disediakan secara 100% GRATIS untuk seluruh siswa-siswi aktif."
-  },
-  jam_layanan: "Senin – Jumat selama jam pelajaran berlangsung (07.00 – 15.30 WITA)",
-  lokasi: "Lantai 1 Ruang UKS SMKN 4 Banjarmasin (Dekat lapangan utama / Kantor guru)",
-  stok_obat_dan_alat: [
-    { id: 1, kategori: "Obat Minum Ringan", nama: "Paracetamol / Tablet Pereda Nyeri & Demam", kegunaan: "Meredakan sakit kepala, pusing, demam ringan, dan nyeri otot akut.", status: "Tersedia & Gratis" },
-    { id: 2, kategori: "Obat Minum Ringan", nama: "Antasida / Obat Maag & Asam Lambung", kegunaan: "Meredakan nyeri ulu hati, kembung, perih, dan mual akibat telat makan.", status: "Tersedia & Gratis" },
-    { id: 3, kategori: "Obat Luar & Cairan", nama: "Minyak Kayu Putih & Minyak Angin Aromatherapi", kegunaan: "Meredakan perut kembung, masuk angin, mual ringan, dan gigitan serangga.", status: "Tersedia & Gratis" },
-    { id: 4, kategori: "Obat Luar & Cairan", nama: "Povidone Iodine (Betadine) & Cairan Antiseptik", kegunaan: "Membersihkan, mensterilkan, dan mencegah infeksi pada luka gores, lecet, atau luka jatuh.", status: "Tersedia & Gratis" },
-    { id: 5, kategori: "Obat Luar & Cairan", nama: "Alkohol 70% & Cairan Pembersih Luka (NaCl 0.9%)", kegunaan: "Sterilisasi area luka atau pembersih kotoran sebelum dibalut perban steril.", status: "Tersedia & Gratis" },
-    { id: 6, kategori: "Obat Luar & Cairan", nama: "Salep Luka Bakar (Bioplacenton / Burnazin)", kegunaan: "Pertolongan pertama pada luka bakar ringan, terkena knalpot, atau air panas.", status: "Tersedia & Gratis" },
-    { id: 7, kategori: "Obat Luar & Cairan", nama: "Krim Meredakan Memar / Thrombophob & Ethylchloride Spray", kegunaan: "Meredakan pembengkakan kronis, memar akibat benturan fisik atau olahraga.", status: "Tersedia & Gratis" },
-    { id: 8, kategori: "Perban & P3K", nama: "Kasa Steril, Plester & Perban Gulung Berbagai Ukuran", kegunaan: "Menutup dan melindungi luka terbuka agar tetap bersih dari debu dan bakteri.", status: "Tersedia & Gratis" },
-    { id: 9, kategori: "Perban & P3K", nama: "Mitella (Kain Segitiga P3K) & Bidai / Spalk Kayu", kegunaan: "Fiksasi darurat saat terjadi cedera terkilir, keseleo berat, atau dugaan patah tulang.", status: "Tersedia & Gratis" },
-    { id: 10, kategori: "Alat Medis Dasar", nama: "Termometer Digital & Tensi Darah (Sphygmomanometer)", kegunaan: "Pemeriksaan akurat tanda vital (suhu tubuh & tekanan darah) oleh petugas UKS.", status: "Tersedia & Gratis" },
-    { id: 11, kategori: "Alat Medis Dasar", nama: "Oxymeter & Tabung Oksigen Portable (Oxycan)", kegunaan: "Bantuan darurat pernapasan bagi siswa yang mengalami sesak napas, asma, atau kelelahan berat.", status: "Tersedia & Gratis" },
-    { id: 12, kategori: "Fasilitas Istirahat", nama: "Tempat Tidur Istirahat UKS & Kursi Roda Darurat", kegunaan: "Fasilitas baring sementara bagi siswa yang pingsan, kram perut, atau sakit sebelum penjemputan.", status: "Tersedia & Gratis" }
-  ],
-  prosedur_kunjungan: [
-    { step: "Izin Guru Mata Pelajaran", deskripsi: "Minta izin secara sopan kepada guru yang sedang mengajar di kelas sebelum menuju ke Ruang UKS." },
-    { step: "Lapor kepada Petugas Jaga UKS", deskripsi: "Saat tiba di Ruang UKS, laporkan keluhan medis atau gejala yang kamu rasakan kepada petugas PMR atau Pembina yang bertugas." },
-    { step: "Pemeriksaan & Pemberian Obat Gratis", deskripsi: "Petugas akan memeriksa kondisi vital dasar (seperti suhu atau tensi) dan memberikan obat minum/luar sesuai keluhan secara 100% gratis." },
-    { step: "Istirahat Sementara atau Surat Rujukan", deskripsi: "Jika butuh baring, siswa dipersilakan beristirahat di ranjang UKS. Jika kondisi membutuhkan penanganan medis intensif, sekolah akan menghubungi orang tua untuk penjemputan." }
-  ],
-  tata_tertib: [
-    "Ruang UKS diperuntukkan khusus bagi siswa-siswi yang benar-benar membutuhkan pertolongan kesehatan atau istirahat medis.",
-    "Dilarang membuat keributan, makan/minum berat, atau berkumpul/nongkrong di dalam Ruang UKS.",
-    "Jaga kebersihan ranjang, sprei, tirai, dan peralatan P3K setelah selesai digunakan.",
-    "Pengambilan obat wajib seizin dan dicatat oleh petugas/pembina UKS demi keselamatan dosis dan riwayat alergi."
-  ]
-};
-
 export const fallbackContent = {
   source: "demo",
   stats: [
@@ -151,7 +25,6 @@ export const fallbackContent = {
       excerpt: "Mempererat silaturahmi sekaligus mengasah keterampilan pertolongan pertama antarorganisasi.",
       date: "16 Januari 2026",
       image: galleryOne[0],
-      is_published: true,
     },
     {
       id: "news-2",
@@ -160,7 +33,6 @@ export const fallbackContent = {
       excerpt: "Dari latihan rutin hingga aksi sosial, setiap anggota belajar hadir dan memberi dampak.",
       date: "Kabar terbaru",
       image: "/gudang/gallery/juara.avif",
-      is_published: true,
     },
     {
       id: "news-3",
@@ -169,7 +41,6 @@ export const fallbackContent = {
       excerpt: "Dokumentasi kegiatan anggota PMR Wira SMKN 4 Banjarmasin.",
       date: "Arsip kegiatan",
       image: "/gudang/gallery/IMG-20260129-WA0032_p6mnxz_ggclja.avif",
-      is_published: true,
     },
   ],
   events: [
@@ -181,7 +52,6 @@ export const fallbackContent = {
       location: "Aula / lapangan sekolah",
       description: "Latihan keterampilan kepalangmerahan, P3K, dan kesiapsiagaan untuk anggota.",
       status: "Terbuka untuk anggota",
-      is_published: true,
     },
     {
       id: "event-2",
@@ -191,7 +61,6 @@ export const fallbackContent = {
       location: "SMKN 4 Banjarmasin",
       description: "Kesempatan untuk siswa aktif yang ingin bertumbuh dalam aksi kemanusiaan.",
       status: "Informasi",
-      is_published: true,
     },
   ],
   gallery: [
@@ -203,7 +72,6 @@ export const fallbackContent = {
       cover: galleryOne[0],
       images: galleryOne,
       description: "Latihan gabungan untuk mempererat silaturahmi dan meningkatkan keterampilan pertolongan pertama.",
-      is_published: true,
     },
     {
       id: 2,
@@ -213,7 +81,6 @@ export const fallbackContent = {
       cover: galleryTwo[0],
       images: galleryTwo,
       description: "Belajar bekerja sama, berbagi peran, dan tetap tanggap dalam setiap simulasi.",
-      is_published: true,
     },
     {
       id: 3,
@@ -226,7 +93,6 @@ export const fallbackContent = {
         "/gudang/gallery/IMG-20260129-WA0035_fwkslt_jjng7f.avif",
       ],
       description: "Momen kebersamaan anggota PMR Wira dalam menjalankan semangat humanis, peduli, dan tanggap.",
-      is_published: true,
     },
     {
       id: 4,
@@ -236,7 +102,6 @@ export const fallbackContent = {
       cover: "/gudang/gallery/juara.avif",
       images: ["/gudang/gallery/juara.avif"],
       description: "Apresiasi untuk kerja keras, disiplin, dan semangat belajar seluruh anggota.",
-      is_published: true,
     },
     {
       id: 5,
@@ -246,57 +111,6 @@ export const fallbackContent = {
       cover: "/gudang/gallery/IMG-20260129-WA0037_ywu4kh_eldskn.avif",
       images: ["/gudang/gallery/IMG-20260129-WA0037_ywu4kh_eldskn.avif"],
       description: "Latihan yang membangun kepercayaan diri dan kesiapan untuk membantu sesama.",
-      is_published: true,
-    },
-  ],
-  registrations: [
-    {
-      id: 101,
-      name: "Dinda Kirana Putri",
-      email: "dindakirana@smkn4bjm.sch.id",
-      phone: "+62 812-3456-7890",
-      class_name: "X RPL 1",
-      message: "Ingin belajar P3K dan aktif di kegiatan bakti sosial kemanusiaan sekolah.",
-      created_at: "2026-07-15T08:30:00Z",
-      status: "Baru",
-    },
-    {
-      id: 102,
-      name: "Rizki Ramadhan Putra",
-      email: "rizki.ramadhan@gmail.com",
-      phone: "+62 852-9876-5432",
-      class_name: "XI TKJ 2",
-      message: "Saya tertarik bergabung karena ingin siap siaga membantu teman saat darurat kesehatan.",
-      created_at: "2026-07-16T14:15:00Z",
-      status: "Diproses",
-    },
-    {
-      id: 103,
-      name: "Aulia Rahma Nisa",
-      email: "aulia.r@smkn4bjm.sch.id",
-      phone: "+62 831-2233-4455",
-      class_name: "X DKV 1",
-      message: "Siap mengikuti jadwal latihan rutin setiap hari Kamis.",
-      created_at: "2026-07-16T16:45:00Z",
-      status: "Diterima",
-    },
-  ],
-  messages: [
-    {
-      id: 201,
-      name: "Bapak Hendra (Orang Tua Siswa)",
-      email: "hendrasantoso@yahoo.com",
-      message: "Permisi kak, apakah ada biaya pendaftaran awal untuk perlengkapan seragam atau atribut PMR?",
-      created_at: "2026-07-14T10:00:00Z",
-      status: "Sudah Dibaca",
-    },
-    {
-      id: 202,
-      name: "Sinta Maharani",
-      email: "sintamaharani22@gmail.com",
-      message: "Halo, saya siswa kelas XI yang baru pindah sekolah. Apakah masih bisa ikut mendaftar PMR semester ini?",
-      created_at: "2026-07-17T09:12:00Z",
-      status: "Belum Dibaca",
     },
   ],
   org: {
@@ -313,10 +127,10 @@ export const fallbackContent = {
       { role: "Bendahara", nama: "Erinne Berlianta Manik", icon: "wallet-cards", deskripsi: "Pengelola keuangan dan transparansi anggaran organisasi." },
     ],
     divisions: [
-      { divisi: "Unit Kesehatan Siswa", icon: "heart-pulse", anggota: ["Syifa Maurinjia", "Nazma Az Zahra", "Nahdhah", "Andi Nabilla Ramadani", "Maulidia Hayuningdiah", "Naufa Azmi Khairizqa", "Melsia Oktavia"] },
+      { divisi: "Unit Kesehatan Siswa", icon: "heart-pulse", foto: "/gudang/gallery/IMG-20260129-WA0037_ywu4kh_eldskn.avif", anggota: ["Syifa Maurinjia", "Nazma Az Zahra", "Nahdhah", "Andi Nabilla Ramadani", "Maulidia Hayuningdiah", "Naufa Azmi Khairizqa", "Melsia Oktavia"] },
       { divisi: "Hubungan Masyarakat", icon: "megaphone", foto: "/gudang/org/kord_1784120541_e1bb0122.jpeg", anggota: ["Eva Regina Putri Riyanti", "Lisa Erfina", "Naylah Azkiya", "Rama", "Alia Rahmawati", "Ferdi Herlino", "Almira Fakhriah Hasan"] },
-      { divisi: "Pengembangan Sumber Daya Manusia", icon: "users-round", anggota: ["A. Ustman Abdullah", "Kirani", "Halissa Azzahra", "Delya Ananda", "Lionel Abdi Darma W.", "Selviana Dewi", "Muhammad Sultan Ariady"] },
-      { divisi: "Sosial Masyarakat", icon: "hand-heart", anggota: ["Nur Aleesya Nashirah", "Nabila Rosydah Zahro", "Zahrah Fitri Aisy", "Wulandari", "Lietya Aisya", "Firy al Humairoh Rahmah", "Sofha Raihana Kamelia"] },
+      { divisi: "Pengembangan Sumber Daya Manusia", icon: "users-round", foto: "/gudang/gallery/IMG-20260129-WA0035_fwkslt_jjng7f.avif", anggota: ["A. Ustman Abdullah", "Kirani", "Halissa Azzahra", "Delya Ananda", "Lionel Abdi Darma W.", "Selviana Dewi", "Muhammad Sultan Ariady"] },
+      { divisi: "Sosial Masyarakat", icon: "hand-heart", foto: "/gudang/gallery/IMG-20260129-WA0031_icpj2a_fqfute.avif", anggota: ["Nur Aleesya Nashirah", "Nabila Rosydah Zahro", "Zahrah Fitri Aisy", "Wulandari", "Lietya Aisya", "Firy al Humairoh Rahmah", "Sofha Raihana Kamelia"] },
     ],
   },
   contact: {
@@ -367,6 +181,4 @@ export const fallbackContent = {
     { question: "Siapa yang bisa bergabung?", answer: "Siswa aktif SMKN 4 Banjarmasin yang sehat jasmani dan rohani serta bersedia mengikuti latihan rutin dapat mendaftar." },
     { question: "Apakah materi P3K bisa menggantikan tenaga medis?", answer: "Tidak. Materi ini bersifat edukatif. Untuk keadaan serius, pastikan lokasi aman dan segera hubungi 119 atau fasilitas kesehatan terdekat." },
   ],
-  roster: defaultRoster,
-  uks_info: defaultUksInfo,
 };

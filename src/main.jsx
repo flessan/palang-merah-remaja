@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Accessibility,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   Award,
   Bell,
+  Camera,
   CalendarDays,
   Check,
   ChevronDown,
@@ -14,7 +16,6 @@ import {
   CircleAlert,
   CircleCheck,
   Clock3,
-  Copy,
   Crown,
   Droplets,
   Eye,
@@ -23,6 +24,7 @@ import {
   HandHeart,
   HeartHandshake,
   HeartPulse,
+  ImagePlus,
   Instagram,
   Mail,
   MapPin,
@@ -49,7 +51,6 @@ import {
   Youtube,
 } from "lucide-react";
 import { fallbackContent } from "./data.js";
-import { AdminPanel } from "./Admin.jsx";
 import "./styles.css";
 
 const iconMap = {
@@ -95,7 +96,6 @@ function mergeContent(data) {
     contact: { ...fallbackContent.contact, ...(data.contact || {}) },
     guides: data.guides?.length ? data.guides : fallbackContent.guides,
     faq: data.faq?.length ? data.faq : fallbackContent.faq,
-    roster: data.roster || fallbackContent.roster,
   };
 }
 
@@ -120,8 +120,64 @@ async function postJSON(path, payload) {
   return body;
 }
 
+/* --- Division photo uploads (client-side persistence) ------------------- */
+/* The site is a static SPA; without a connected storage bucket we keep the
+   uploaded division photos in localStorage so the feature is fully usable in
+   the demo. A compressed data URL is stored to stay well within quota. */
+const DIVISION_PHOTO_KEY = "pmr_division_photos";
+function loadDivisionPhotos() {
+  try { return JSON.parse(localStorage.getItem(DIVISION_PHOTO_KEY) || "{}"); } catch { return {}; }
+}
+function saveDivisionPhoto(divisi, dataUrl) {
+  const map = loadDivisionPhotos();
+  if (dataUrl) map[divisi] = dataUrl; else delete map[divisi];
+  try { localStorage.setItem(DIVISION_PHOTO_KEY, JSON.stringify(map)); } catch { /* quota exceeded */ }
+}
+function applyDivisionPhotos(data) {
+  const photos = loadDivisionPhotos();
+  if (data?.org?.divisions?.length && Object.keys(photos).length) {
+    data.org.divisions = data.org.divisions.map((division) =>
+      photos[division.divisi] ? { ...division, foto: photos[division.divisi] } : division
+    );
+  }
+  return data;
+}
+
+/* Downscale + re-encode an uploaded image so stored data URLs stay small. */
+function compressImage(file, maxDim = 720, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) {
+      reject(new Error("Berkas harus berupa gambar."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Gagal membaca berkas."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Berkas gambar tidak valid."));
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } catch {
+          reject(new Error("Gagal memproses gambar."));
+        }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function App() {
-  const [content, setContent] = useState(fallbackContent);
+  const [content, setContent] = useState(() => applyDivisionPhotos(fallbackContent));
   const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "beranda");
   const [theme, setTheme] = useState(() => localStorage.getItem("pmr_theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
   const [toast, setToast] = useState(null);
@@ -131,20 +187,50 @@ function App() {
   const [slide, setSlide] = useState(0);
   const [selectedGuide, setSelectedGuide] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [showToTop, setShowToTop] = useState(false);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}), { once: true });
     }
     loadContent().then((data) => {
-      setContent(data);
+      setContent(applyDivisionPhotos(data));
     });
   }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("pmr_theme", theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#121212" : "#f7f6f2");
   }, [theme]);
+
+  useEffect(() => {
+    const titles = {
+      beranda: "PMR Wira — SMKN 4 Banjarmasin",
+      profil: "Profil — PMR Wira",
+      edukasi: "Edukasi P3K — PMR Wira",
+      galeri: "Galeri — PMR Wira",
+      kontak: "Kontak — PMR Wira",
+    };
+    document.title = titles[activeTab] || "PMR Wira — SMKN 4 Banjarmasin";
+  }, [activeTab]);
+
+  useEffect(() => {
+    const onScroll = () => setShowToTop(window.scrollY > 600);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileMenu) return;
+    const onDown = (event) => {
+      if (!event.target.closest(".desktop-nav") && !event.target.closest(".menu-button")) setMobileMenu(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [mobileMenu]);
 
   useEffect(() => {
     const onPopState = () => setActiveTab(new URLSearchParams(window.location.search).get("tab") || "beranda");
@@ -182,9 +268,6 @@ function App() {
     setMobileMenu(false);
     const url = tab === "beranda" ? window.location.pathname : `${window.location.pathname}?tab=${tab}`;
     window.history.pushState({ tab }, "", url);
-    if (tab !== "admin") {
-      loadContent().then((data) => setContent(data));
-    }
     window.setTimeout(() => {
       if (anchor) document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
       else window.scrollTo({ top: 0, behavior: "smooth" });
@@ -227,15 +310,11 @@ function App() {
             <span className="brand-copy"><strong>PMR WIRA</strong><small>SMKN 4 BANJARMASIN</small></span>
           </button>
           <nav className={`desktop-nav ${mobileMenu ? "is-open" : ""}`} aria-label="Navigasi utama">
-            {[{ id: "beranda", label: "Beranda" }, { id: "profil", label: "Profil" }, { id: "uks", label: "Ruang UKS & Obat" }, { id: "edukasi", label: "Edukasi P3K" }, { id: "galeri", label: "Galeri" }, { id: "kontak", label: "Kontak" }, { id: "admin", label: "Portal Admin" }].map((item) => (
+            {[{ id: "beranda", label: "Beranda" }, { id: "profil", label: "Profil" }, { id: "edukasi", label: "Edukasi P3K" }, { id: "galeri", label: "Galeri" }, { id: "kontak", label: "Kontak" }].map((item) => (
               <button key={item.id} className={activeTab === item.id ? "active" : ""} onClick={() => goTo(item.id)}>{item.label}</button>
             ))}
           </nav>
           <div className="header-actions">
-            <button className={`admin-badge-btn ${activeTab === "admin" ? "active" : ""}`} onClick={() => goTo("admin")} aria-label="Portal Admin" title="Portal Admin">
-              <ShieldCheck size={17} />
-              <span>Admin</span>
-            </button>
             <button className="theme-button" onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={theme === "light" ? "Aktifkan mode gelap" : "Aktifkan mode terang"}>
               {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
             </button>
@@ -244,20 +323,19 @@ function App() {
         </div>
       </header>
 
+      {mobileMenu && <div className="nav-backdrop" onClick={() => setMobileMenu(false)} aria-hidden="true" />}
+
       <main id="main-content">
-        {activeTab === "beranda" && <Home content={content} goTo={goTo} onGuide={() => goTo("edukasi")} />}
-        {activeTab === "profil" && <Profile content={content} goTo={goTo} />}
-        {activeTab === "edukasi" && <Education content={content} onGuide={setSelectedGuide} />}
-        {activeTab === "galeri" && <Gallery albums={filteredGallery} categories={categories} search={gallerySearch} filter={galleryFilter} setSearch={setGallerySearch} setFilter={setGalleryFilter} onOpen={openAlbum} />}
-        {activeTab === "kontak" && <Contact content={content} showToast={showToast} />}
-        {activeTab === "uks" && <UksServicePage content={content} goTo={goTo} />}
-        {activeTab === "admin" && (
-          <AdminPanel
-            showToast={showToast}
-            onRefreshPublic={(newData) => {
-              setContent(mergeContent(newData));
-            }}
-          />
+        {KNOWN_TABS.includes(activeTab) ? (
+          <>
+            {activeTab === "beranda" && <Home content={content} goTo={goTo} onGuide={() => goTo("edukasi")} />}
+            {activeTab === "profil" && <Profile content={content} goTo={goTo} showToast={showToast} />}
+            {activeTab === "edukasi" && <Education content={content} onGuide={setSelectedGuide} />}
+            {activeTab === "galeri" && <Gallery albums={filteredGallery} categories={categories} search={gallerySearch} filter={galleryFilter} setSearch={setGallerySearch} setFilter={setGalleryFilter} onOpen={openAlbum} />}
+            {activeTab === "kontak" && <Contact content={content} showToast={showToast} />}
+          </>
+        ) : (
+          <NotFound goTo={goTo} />
         )}
       </main>
 
@@ -270,7 +348,7 @@ function App() {
       </footer>
 
       <nav className="bottom-nav" aria-label="Navigasi mobile">
-        {[{ id: "beranda", label: "Beranda", icon: "users" }, { id: "profil", label: "Profil", icon: "user-round" }, { id: "uks", label: "Ruang UKS", icon: "heart-pulse" }, { id: "edukasi", label: "P3K", icon: "shield-check" }, { id: "galeri", label: "Galeri", icon: "award" }, { id: "kontak", label: "Kontak", icon: "megaphone" }, { id: "admin", label: "Admin", icon: "crown" }].map((item) => (
+        {[{ id: "beranda", label: "Beranda", icon: "users" }, { id: "profil", label: "Profil", icon: "user-round" }, { id: "edukasi", label: "P3K", icon: "shield-check" }, { id: "galeri", label: "Galeri", icon: "award" }, { id: "kontak", label: "Kontak", icon: "megaphone" }].map((item) => (
           <button key={item.id} className={activeTab === item.id ? "active" : ""} onClick={() => goTo(item.id)}><Icon name={item.icon} size={19} /><span>{item.label}</span></button>
         ))}
       </nav>
@@ -278,400 +356,20 @@ function App() {
       {selectedAlbum && <AlbumModal album={selectedAlbum} slide={slide} onClose={() => setSelectedAlbum(null)} onPrev={() => changeSlide(-1)} onNext={() => changeSlide(1)} onSelect={setSlide} />}
       {selectedGuide && <GuideModal guide={selectedGuide} onClose={() => setSelectedGuide(null)} />}
       {toast && <div className={`toast toast-${toast.type}`} role="alert"><span>{toast.type === "success" ? <CircleCheck size={18} /> : <CircleAlert size={18} />}</span>{toast.message}</div>}
+      <button className={`to-top ${showToTop ? "show" : ""}`} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="Kembali ke atas"><ArrowUp size={20} /></button>
     </div>
   );
 }
 
-function formatRosterForWhatsApp(roster, viewType) {
-  if (!roster) return "";
-  const uksList = roster.uks_schedule || [];
-  const lapList = roster.lapangan_schedule || [];
-  const baseUrl = window.location.origin || "https://pmr-wira-smkn4.pages.dev";
+const KNOWN_TABS = ["beranda", "profil", "edukasi", "galeri", "kontak"];
 
-  if (viewType === "uks") {
-    let titleRange = "13-17 Juli 2026";
-    if (uksList.length > 0) {
-      const firstTgl = uksList[0].tanggal.replace(/^[A-Za-z]+,\s*/, "");
-      const fifthTgl = uksList[Math.min(4, uksList.length - 1)].tanggal.replace(/^[A-Za-z]+,\s*/, "");
-      const firstNum = firstTgl.split(" ")[0];
-      titleRange = `${firstNum}-${fifthTgl}`;
-    }
-
-    let text = `*Jadwal Piket Jaga UKS Tanggal ${titleRange}*\n`;
-    const slice5 = uksList.slice(0, 5);
-    slice5.forEach((item) => {
-      text += `\n${item.tanggal}\n\n`;
-      (item.petugas || []).forEach((nama) => {
-        text += `* ${nama}\n`;
-      });
-    });
-    text += `\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
-    return text;
-  } else {
-    const nextMonday = lapList[0] || { tanggal: "Senin, 13 Juli 2026", petugas: [] };
-    let text = `*Jadwal Jaga Upacara ${nextMonday.tanggal}*\n\n`;
-    (nextMonday.petugas || []).forEach((nama) => {
-      text += `* ${nama}\n`;
-    });
-    text += `\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
-    return text;
-  }
-}
-
-function PublicRosterWidget({ roster }) {
-  if (!roster || roster.is_published === false) return null;
-  const [activeView, setActiveView] = useState("uks"); // 'uks' or 'lapangan'
-  const [modalOpen, setModalOpen] = useState(false);
-
-  const scheduleList = activeView === "uks" ? (roster.uks_schedule || []) : (roster.lapangan_schedule || []);
-
-  const handleShareWA = () => {
-    const text = formatRosterForWhatsApp(roster, activeView);
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
-  };
-
-  const handleCopyText = () => {
-    const text = formatRosterForWhatsApp(roster, activeView);
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text);
-      alert("Teks jadwal tanpa emoji dan link website berhasil disalin! Siap ditempel ke WhatsApp.");
-    } else {
-      prompt("Salin teks jadwal berikut:", text);
-    }
-  };
-
+function NotFound({ goTo }) {
   return (
-    <div className="public-roster-section">
-      <div className="roster-public-card">
-        <div className="rpc-head">
-          <div>
-            <span className="eyebrow eyebrow-light"><Sparkles size={14} /> JADWAL TUGAS RESMI · {roster.periode || "2026/2027"}</span>
-            <h3><HeartPulse size={24} /> Jadwal Jaga UKS & Piket Lapangan</h3>
-            <p style={{ color: "#ccc", fontSize: "13px", marginTop: "4px" }}>{roster.keterangan}</p>
-          </div>
-          <div className="rpc-subtabs">
-            <button className={`rpc-subtab ${activeView === "uks" ? "active" : ""}`} onClick={() => setActiveView("uks")}>
-              📍 Ruang UKS ({roster.uks_schedule?.length || 0} Hari)
-            </button>
-            <button className={`rpc-subtab ${activeView === "lapangan" ? "active" : ""}`} onClick={() => setActiveView("lapangan")}>
-              🚩 Lapangan Upacara ({roster.lapangan_schedule?.length || 0} Hari)
-            </button>
-          </div>
-        </div>
-
-        <div className="wa-share-bar">
-          <div className="wa-share-info">
-            <MessageCircle size={18} />
-            <span>Bagikan jadwal {activeView === "uks" ? "Piket Jaga UKS" : "Jaga Upacara Senin"} ke WhatsApp (Format rapi tanpa emoji beserta tautan link):</span>
-          </div>
-          <div className="wa-share-btns">
-            <button type="button" className="button button-wa button-sm" onClick={handleShareWA}>
-              <Send size={14} /> Share ke WhatsApp
-            </button>
-            <button type="button" className="button button-ghost button-sm" onClick={handleCopyText}>
-              <Copy size={14} /> Salin Teks & Link
-            </button>
-          </div>
-        </div>
-
-        <div className="rpc-body">
-          {scheduleList.slice(0, 6).map((item, idx) => {
-            const isToday = item.tanggal?.toLowerCase().includes(new Date().getDate() + " ");
-            return (
-              <div className={`rpc-day-card ${isToday ? "today-highlight" : ""}`} key={idx}>
-                <div className="rpc-day-top">
-                  <span>{item.tanggal}</span>
-                  {isToday ? <span className="today-tag">HARI INI</span> : <span className="tag">{item.hari}</span>}
-                </div>
-                <div className="rpc-names">
-                  {item.petugas?.map((nama, mi) => (
-                    <div className="rpc-name" key={mi}>
-                      <UserRound size={15} /> <span>{nama}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="rpc-foot">
-          <div>
-            <strong>Menampilkan 6 shift terdekat di {roster.bulan_label}.</strong>
-            <span> Seluruh anggota telah dibagi dengan rotasi frekuensi seimbang & adil.</span>
-          </div>
-          <button className="button button-yellow button-sm" onClick={() => setModalOpen(true)}>
-            Lihat Semua Jadwal & Statistik Keadilan <ArrowRight size={14} />
-          </button>
-        </div>
-      </div>
-      {modalOpen && <PublicRosterModal roster={roster} onClose={() => setModalOpen(false)} />}
-    </div>
-  );
-}
-
-function PublicRosterModal({ roster, onClose }) {
-  const [tab, setTab] = useState("uks");
-
-  const handleModalWA = () => {
-    const text = formatRosterForWhatsApp(roster, tab === "lapangan" ? "lapangan" : "uks");
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
-  };
-
-  const handleModalCopy = () => {
-    const text = formatRosterForWhatsApp(roster, tab === "lapangan" ? "lapangan" : "uks");
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text);
-      alert("Teks jadwal tanpa emoji dan link website berhasil disalin! Siap ditempel ke WhatsApp.");
-    } else {
-      prompt("Salin teks jadwal berikut:", text);
-    }
-  };
-
-  return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-modal modal-lg" role="dialog">
-        <div className="modal-head">
-          <div>
-            <span className="eyebrow">JADWAL ADIL PMR WIRA · {roster.bulan_label}</span>
-            <h2>Daftar Lengkap Shift Jaga UKS & Piket Lapangan</h2>
-          </div>
-          <button className="close-button" onClick={onClose}><X size={20} /></button>
-        </div>
-        <div className="modal-body-form">
-          <p style={{ color: "var(--muted)", fontSize: "13px" }}>{roster.keterangan}</p>
-          
-          <div className="rss-tabs" style={{ marginBottom: 0 }}>
-            <button className={`rss-tab ${tab === "uks" ? "active" : ""}`} onClick={() => setTab("uks")}>
-              📍 Penjagaan Ruang UKS (Senin–Jumat)
-            </button>
-            <button className={`rss-tab ${tab === "lapangan" ? "active" : ""}`} onClick={() => setTab("lapangan")}>
-              🚩 Piket Lapangan Upacara (Setiap Senin)
-            </button>
-            <button className={`rss-tab ${tab === "fairness" ? "active" : ""}`} onClick={() => setTab("fairness")}>
-              ⚖️ Bukti Keadilan Distribusi
-            </button>
-          </div>
-
-          {tab !== "fairness" && (
-            <div className="wa-share-bar" style={{ margin: "6px 0" }}>
-              <div className="wa-share-info">
-                <MessageCircle size={18} />
-                <span>Bagikan daftar {tab === "uks" ? "Piket Jaga UKS" : "Jaga Upacara"} ini ke WhatsApp (Format rapi tanpa emoji + tautan resmi):</span>
-              </div>
-              <div className="wa-share-btns">
-                <button type="button" className="button button-wa button-sm" onClick={handleModalWA}>
-                  <Send size={14} /> Share ke WhatsApp
-                </button>
-                <button type="button" className="button button-ghost button-sm" onClick={handleModalCopy}>
-                  <Copy size={14} /> Salin Teks & Link
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div style={{ maxHeight: "50vh", overflowY: "auto", display: "grid", gap: "10px", paddingRight: "4px" }}>
-            {tab !== "fairness" ? (
-              (tab === "uks" ? roster.uks_schedule : roster.lapangan_schedule)?.map((shift, sIdx) => (
-                <div className="rss-row" key={sIdx} style={{ background: "var(--paper)" }}>
-                  <div className="rss-date">
-                    <strong>{shift.tanggal}</strong>
-                    <span className="tag">{shift.hari}</span>
-                  </div>
-                  <div className="rss-petugas">
-                    <span>Petugas Bertugas:</span>
-                    <div className="petugas-pills">
-                      {shift.petugas?.map((nama, mi) => (
-                        <div className="petugas-pill" key={mi}>
-                          <UserRound size={13} /> <span>{nama}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div style={{ display: "grid", gap: "14px" }}>
-                <div className="fair-badge" style={{ alignSelf: "start" }}>
-                  <Check size={16} /> DISTRIBUSI SECARA ALGORITMA TERBUKTI 100% ADIL (Selisih frekuensi antar anggota $\le 1$)
-                </div>
-                <p style={{ fontSize: "13px", color: "var(--muted)" }}>Algoritma Fair Shuffling kami mendistribusikan shift agar setiap anggota mendapatkan jumlah giliran yang seimbang dalam sebulan, tanpa jadwal berturut-turut pada hari berikutnya dan tanpa bentrok hari Senin antara UKS dan Lapangan.</p>
-                <div className="audit-chips">
-                  {Object.entries(roster.summary_counts || {}).map(([nama, c]) => (
-                    <div className="audit-chip" key={nama} style={{ background: "var(--card)" }}>
-                      <strong>{nama}</strong>
-                      <span>UKS: {c.uks} · Lapangan: {c.lapangan} ➔ <b>Total: {c.total} shift</b></span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="modal-actions">
-            <button className="button button-dark" onClick={onClose}>Tutup Jadwal <Check size={16} /></button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function UksHomepageBanner({ uksInfo, goTo }) {
-  const info = uksInfo || fallbackContent.uks_info;
-  return (
-    <section className="container uks-home-banner-section">
-      <div className="uks-home-banner">
-        <div className="uhb-left">
-          <span className="eyebrow eyebrow-light"><Sparkles size={14} /> LAYANAN KESEHATAN SEKOLAH · 100% GRATIS</span>
-          <h2>{info.welcome_banner?.title || "Ruang UKS Terbuka untuk Seluruh Siswa-Siswi."}</h2>
-          <p>{info.welcome_banner?.subtitle || "Merasa kurang sehat atau butuh obat pusing/demam saat jam pelajaran? Datanglah ke Ruang UKS. Semua pemeriksaan & stok obat P3K disediakan secara gratis."}</p>
-          <div className="uhb-tags">
-            <span><Check size={14} /> Paracetamol & Antasida Gratis</span>
-            <span><Check size={14} /> Minyak Kayu Putih & Betadine</span>
-            <span><Check size={14} /> Cek Suhu & Tensi Darah</span>
-            <span><Check size={14} /> Ranjang Istirahat UKS</span>
-          </div>
-        </div>
-        <div className="uhb-right">
-          <div className="uhb-card">
-            <HeartPulse size={36} />
-            <strong>Obat & Pemeriksaan Gratis</strong>
-            <small>{info.welcome_banner?.highlight || "Tidak dipungut biaya apapun bagi seluruh siswa SMKN 4 Banjarmasin."}</small>
-            <button className="button button-yellow full" onClick={() => goTo("uks")}>
-              Lihat Daftar Stok Obat & Prosedur <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function UksServicePage({ content, goTo }) {
-  const info = content.uks_info || fallbackContent.uks_info;
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Semua");
-
-  const categories = useMemo(() => ["Semua", ...new Set((info.stok_obat_dan_alat || []).map(i => i.kategori).filter(Boolean))], [info.stok_obat_dan_alat]);
-
-  const filteredItems = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (info.stok_obat_dan_alat || []).filter(item => {
-      const matchQ = !q || `${item.nama} ${item.kegunaan} ${item.kategori}`.toLowerCase().includes(q);
-      const matchC = category === "Semua" || item.kategori === category;
-      return matchQ && matchC;
-    });
-  }, [info.stok_obat_dan_alat, search, category]);
-
-  return (
-    <section className="page-section container uks-service-page">
-      {/* Welcome Banner */}
-      <div className="uks-hero-card">
-        <div className="uhc-top">
-          <span className="eyebrow"><HeartPulse size={16} /> RUANG UKS SMKN 4 BANJARMASIN</span>
-          <span className="tag-green-pill"><Check size={14} /> OBAT & PERAWATAN 100% GRATIS</span>
-        </div>
-        <h1>{info.welcome_banner?.title}</h1>
-        <p className="uhc-sub">{info.welcome_banner?.subtitle}</p>
-        <div className="uhc-highlight-box">
-          <Sparkles size={20} />
-          <span><strong>Informasi Penting Siswa:</strong> {info.welcome_banner?.highlight}</span>
-        </div>
-        <div className="uhc-meta-row">
-          <div><Clock3 size={17} /> <span><strong>Jam Layanan:</strong> {info.jam_layanan}</span></div>
-          <div><MapPin size={17} /> <span><strong>Lokasi:</strong> {info.lokasi}</span></div>
-        </div>
-      </div>
-
-      {/* Inventory & Free Medicines */}
-      <div className="uks-inventory-section">
-        <SectionHeading
-          kicker="Stok Obat & Alat Medis"
-          title="Daftar Obat & Fasilitas UKS"
-          description="Berikut adalah stok obat minum ringan, obat luar, perban, alat pemeriksaan, dan fasilitas baring yang tersedia secara gratis untuk siswa-siswi yang sakit atau cedera."
-        />
-        <div className="gallery-toolbar">
-          <label className="search-field">
-            <Search size={18} />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama obat (misal: paracetamol, maag, betadine)..." />
-            {search && <button onClick={() => setSearch("")}><X size={16} /></button>}
-          </label>
-          <div className="filter-list">
-            {categories.map((cat) => (
-              <button key={cat} className={category === cat ? "active" : ""} onClick={() => setCategory(cat)}>{cat}</button>
-            ))}
-          </div>
-        </div>
-
-        <div className="uks-inventory-grid">
-          {filteredItems.map((item, idx) => (
-            <div className="medicine-card" key={idx}>
-              <div className="med-top">
-                <span className="med-category">{item.kategori}</span>
-                <span className="med-status"><Check size={12} /> {item.status || "Tersedia & Gratis"}</span>
-              </div>
-              <h3>{item.nama}</h3>
-              <p>{item.kegunaan}</p>
-            </div>
-          ))}
-          {!filteredItems.length && (
-            <div className="empty-box" style={{ gridColumn: "1 / -1" }}>
-              <p>Tidak menemukan obat atau alat dengan kata kunci pencarian tersebut.</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Procedure for visiting UKS */}
-      <div className="uks-procedure-section">
-        <SectionHeading
-          kicker="Alur Pelayanan"
-          title="Prosedur Kunjungan ke Ruang UKS"
-          description="Agar ketertiban belajar mengajar tetap terjaga, ikuti alur kunjungan berikut saat kamu merasa sakit di sekolah."
-        />
-        <div className="procedure-grid">
-          {(info.prosedur_kunjungan || []).map((step, idx) => (
-            <div className="procedure-step-card" key={idx}>
-              <div className="step-badge"><span>0{idx + 1}</span></div>
-              <h4>{step.step}</h4>
-              <p>{step.deskripsi}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Tata Tertib UKS */}
-      <div className="uks-rules-box">
-        <div className="urb-head">
-          <ShieldCheck size={24} />
-          <div>
-            <h3>Tata Tertib & Etika Penggunaan Ruang UKS</h3>
-            <small>Dipatuhi bersama oleh anggota PMR, petugas jaga, dan seluruh siswa-siswi.</small>
-          </div>
-        </div>
-        <ul className="urb-list">
-          {(info.tata_tertib || []).map((rule, idx) => (
-            <li key={idx}>
-              <Check size={16} />
-              <span>{rule}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Bottom CTA */}
-      <div className="inline-cta" style={{ marginTop: "60px" }}>
-        <div>
-          <strong>Butuh konsultasi lebih lanjut atau punya pertanyaan?</strong>
-          <span>Hubungi tim sekretariat PMR Wira & Pembina UKS SMKN 4 Banjarmasin.</span>
-        </div>
-        <button className="button button-primary" onClick={() => goTo("kontak")}>
-          Hubungi Sekretariat <ArrowRight size={16} />
-        </button>
-      </div>
+    <section className="page-section container notfound">
+      <div className="eyebrow"><span className="eyebrow-dot" /> 404</div>
+      <h1>Halaman<br /><em>tidak ada</em></h1>
+      <p>Sepertinya halaman yang kamu cari belum tersedia atau sudah dipindahkan.</p>
+      <button className="button button-primary" onClick={() => goTo("beranda")}>Kembali ke beranda <ArrowRight size={16} /></button>
     </section>
   );
 }
@@ -699,9 +397,6 @@ function Home({ content, goTo, onGuide }) {
 
     <section className="stats-section"><div className="container stats-grid">{content.stats.map((stat) => <div className="stat" key={stat.label}><Icon name={stat.icon} size={22} /><strong>{stat.value}<small>+</small></strong><span>{stat.label}</span></div>)}</div></section>
 
-    <PublicRosterWidget roster={content.roster} />
-    <UksHomepageBanner uksInfo={content.uks_info} goTo={goTo} />
-
     <section className="page-section container home-content">
       <SectionHeading kicker="Dari kegiatan kami" title="Kabar terkini" description="Cerita kecil, langkah nyata, dan semangat kebersamaan PMR Wira." action={<button className="text-button" onClick={() => goTo("galeri")}>Lihat semua <ArrowRight size={16} /></button>} />
       <div className="news-grid">{content.announcements.map((news, index) => <NewsCard key={news.id} news={news} featured={index === 0} />)}</div>
@@ -714,7 +409,7 @@ function Home({ content, goTo, onGuide }) {
   </>;
 }
 
-function Profile({ content, goTo }) {
+function Profile({ content, goTo, showToast }) {
   const { org } = content;
   return <section className="page-section container profile-page">
     <SectionHeading kicker="Tentang PMR Wira" title="Satu tim, satu kepedulian" description="PMR Wira SMKN 4 Banjarmasin adalah ruang belajar untuk menjadi pribadi yang berkarakter, sigap, dan bermanfaat." />
@@ -723,7 +418,7 @@ function Profile({ content, goTo }) {
     <div className="section-anchor" id="member"><SectionHeading kicker={`Periode ${org.periode || "2026/2027"}`} title="Struktur organisasi" description="Kenali orang-orang yang menggerakkan PMR Wira." /></div>
     <div className="advisory-grid">{(org.advisory || []).map((person) => <PersonCard key={person.nama} person={{ ...person, role: person.jabatan }} muted />)}</div>
     <div className="leaders-grid">{(org.leaders || []).map((person) => <PersonCard key={person.role} person={person} />)}</div>
-    <h3 className="division-title">Koordinator divisi</h3><div className="division-grid">{(org.divisions || []).map((division) => <DivisionCard key={division.divisi} division={division} />)}</div>
+    <h3 className="division-title">Koordinator divisi</h3><div className="division-grid">{(org.divisions || []).map((division) => <DivisionCard key={division.divisi} division={division} showToast={showToast} />)}</div>
     <div className="faq-section"><SectionHeading kicker="Masih penasaran?" title="Pertanyaan umum" /> <FAQ items={content.faq} /></div>
     <div className="inline-cta"><div><strong>Ingin terlibat lebih jauh?</strong><span>Temukan cara bergabung dengan PMR Wira.</span></div><button className="button button-primary" onClick={() => goTo("kontak")}>Hubungi kami <ArrowRight size={16} /></button></div>
   </section>;
@@ -785,11 +480,82 @@ function SectionHeading({ kicker, title, description, action }) { return <div cl
 function NewsCard({ news, featured }) { return <article className={`news-card ${featured ? "featured" : ""}`}><div className="news-image"><img src={news.image} alt="" loading="lazy" /><span>{news.category}</span></div><div className="news-body"><small>{news.date}</small><h3>{news.title}</h3><p>{news.excerpt}</p><span className="read-more">Baca selengkapnya <ArrowRight size={15} /></span></div></article>; }
 function EventCard({ event }) { return <article className="event-card"><div className="event-date"><CalendarDays size={18} /><strong>{event.date}</strong><span>{event.time}</span></div><div className="event-detail"><span className="tag">{event.status}</span><h3>{event.title}</h3><p>{event.description}</p><small><MapPin size={14} /> {event.location}</small></div></article>; }
 function PersonCard({ person, muted }) { return <article className={`person-card ${muted ? "person-muted" : ""}`}>{person.foto ? <img src={person.foto} alt={person.nama} /> : <div className="person-avatar"><Icon name={person.icon} size={23} /></div>}<div className="person-content"><span>{person.role || person.jabatan}</span><h3>{person.nama || "Akan diumumkan"}</h3><p>{person.deskripsi}</p></div></article>; }
-function DivisionCard({ division }) { const [open, setOpen] = useState(false); return <article className={`division-card ${open ? "open" : ""}`}><button onClick={() => setOpen(!open)} aria-expanded={open}><span className="division-icon"><Icon name={division.icon} size={20} /></span><span><small>DIVISI</small><strong>{division.divisi}</strong></span><ChevronDown size={18} /></button><div className="member-list">{division.anggota?.map((member) => <span key={member}><UserRound size={13} />{member}</span>)}</div></article>; }
+function DivisionCard({ division, showToast }) {
+  const [open, setOpen] = useState(false);
+  const [photo, setPhoto] = useState(division.foto || null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+
+  const pickPhoto = () => fileRef.current?.click();
+
+  const handlePhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const dataUrl = await compressImage(file, 720, 0.82);
+      setPhoto(dataUrl);
+      saveDivisionPhoto(division.divisi, dataUrl);
+      showToast?.("Foto divisi tersimpan.");
+    } catch (error) {
+      showToast?.(error.message || "Gagal mengunggah foto.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <article className={`division-card ${open ? "open" : ""}`}>
+      <div className="division-head">
+        <button className="division-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
+          <span className="division-thumb">{photo ? <img src={photo} alt={division.divisi} /> : <Camera size={18} />}</span>
+          <span className="division-meta"><small>DIVISI</small><strong>{division.divisi}</strong></span>
+          <ChevronDown size={18} className="division-chevron" />
+        </button>
+        <button className="division-edit" onClick={pickPhoto} disabled={busy} aria-label="Unggah foto divisi" title="Unggah foto">
+          {busy ? <span className="spinner" aria-hidden="true" /> : <ImagePlus size={16} />}
+        </button>
+        <input ref={fileRef} className="visually-hidden" type="file" accept="image/*" onChange={handlePhoto} />
+      </div>
+      <div className="member-list">{division.anggota?.map((member) => <span key={member}><UserRound size={13} />{member}</span>)}</div>
+    </article>
+  );
+}
 function FAQ({ items }) { const [open, setOpen] = useState(0); return <div className="faq-list">{items.map((item, index) => <div className={`faq-item ${open === index ? "open" : ""}`} key={item.question}><button onClick={() => setOpen(open === index ? -1 : index)} aria-expanded={open === index}><span>{item.question}</span><ChevronDown size={18} /></button><div className="faq-answer"><p>{item.answer}</p></div></div>)}</div>; }
 function ContactLine({ icon, text, href }) { const IconComponent = icon === "map" ? MapPin : icon === "phone" ? Phone : Mail; const content = <><IconComponent size={17} /><span>{text}</span></>; return href ? <a className="contact-line" href={href}>{content}</a> : <div className="contact-line">{content}</div>; }
 function Field({ label, type = "text", value, onChange, required }) { return <label className="field"><span>{label}{required && <b>*</b>}</span><input type={type} value={value} onChange={onChange} required={required} /></label>; }
 function AlbumModal({ album, slide, onClose, onPrev, onNext, onSelect }) { return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="album-modal" role="dialog" aria-modal="true" aria-label={album.title}><div className="modal-head"><div><span className="eyebrow">{album.category || "Kegiatan"} · {album.date}</span><h2>{album.title}</h2></div><button className="close-button" onClick={onClose} aria-label="Tutup"><X size={21} /></button></div><div className="album-viewer"><img src={album.images?.[slide] || album.cover} alt={`${album.title} ${slide + 1}`} /><button className="slider-button slider-prev" onClick={onPrev} aria-label="Foto sebelumnya"><ChevronLeft /></button><button className="slider-button slider-next" onClick={onNext} aria-label="Foto berikutnya"><ChevronRight /></button></div><div className="album-dots">{album.images?.map((image, index) => <button key={image} className={slide === index ? "active" : ""} onClick={() => onSelect(index)} aria-label={`Buka foto ${index + 1}`} />)}</div><p className="modal-description">{album.description}</p></div></div>; }
 function GuideModal({ guide, onClose }) { return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="guide-modal" role="dialog" aria-modal="true" aria-label={guide.title}><div className="modal-head"><div><span className={`tag tone-label-${guide.tone}`}>{guide.tag}</span><h2>{guide.title}</h2></div><button className="close-button" onClick={onClose} aria-label="Tutup"><X size={21} /></button></div><ol className="guide-steps">{guide.steps.map((step, index) => <li key={step}><span>{index + 1}</span><p>{step}</p></li>)}</ol><div className="modal-reminder"><CircleAlert size={18} /><span>Jika kondisi memburuk, segera hubungi 119 atau fasilitas kesehatan terdekat.</span></div><button className="button button-dark full" onClick={onClose}>Saya mengerti <Check size={16} /></button></div></div>; }
 
-createRoot(document.getElementById("root")).render(<App />);
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error) {
+    console.error("PMR site error:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="page-section container notfound">
+          <div className="eyebrow"><span className="eyebrow-dot" /> TERJADI KENDALA</div>
+          <h1><em>Mohon maaf</em></h1>
+          <p>Terjadi kendala saat menampilkan halaman. Coba muat ulang untuk melanjutkan.</p>
+          <button className="button button-primary" onClick={() => location.reload()}>Muat ulang <ArrowRight size={16} /></button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+createRoot(document.getElementById("root")).render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);

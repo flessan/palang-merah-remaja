@@ -49,7 +49,6 @@ CREATE TABLE IF NOT EXISTS registrations (
   phone TEXT NOT NULL,
   class_name TEXT NOT NULL DEFAULT '',
   message TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'Baru',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -58,7 +57,6 @@ CREATE TABLE IF NOT EXISTS contact_messages (
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   message TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'Belum Dibaca',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
