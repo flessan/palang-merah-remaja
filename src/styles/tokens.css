@@ -1,0 +1,140 @@
+/* ==========================================================================
+   PMR Wira — design tokens
+   Neo-brutalism for kids · comic-pop UI · hard shadows, thick outlines,
+   extremely rounded forms, solid pop colours. No gradients anywhere.
+   ========================================================================== */
+
+:root {
+  /* ---- palette (solid colours only) ---- */
+  --ink: #151515;
+  --ink-soft: #3d3a3a;
+  --paper: #fff9ed;
+  --paper-2: #fff3d9;
+  --white: #ffffff;
+  --red: #ef4444;
+  --red-deep: #cf2f2f;
+  --yellow: #ffd84d;
+  --yellow-deep: #f0b90b;
+  --blue: #61b8ff;
+  --blue-deep: #2f8fdd;
+  --mint: #83dfb5;
+  --mint-deep: #3fae83;
+  --pink: #ff9999;
+  --pink-deep: #e06a6a;
+
+  /* ---- semantic surface tokens (theme-switched below) ---- */
+  --bg: var(--paper);
+  --surface: var(--white);
+  --surface-alt: var(--paper-2);
+  --outline: var(--ink);
+  --shadow-color: var(--ink);
+  --text: var(--ink);
+  --text-muted: #5a5350;
+  --focus-ring: var(--blue-deep);
+
+  /* ---- form ---- */
+  --border-w: 3px;
+  --radius-xs: 12px;
+  --radius-sm: 18px;
+  --radius-md: 26px;
+  --radius-lg: 34px;
+  --radius-xl: 44px;
+  --radius-pill: 999px;
+
+  /* ---- elevation: hard, flat, never blurred ---- */
+  --shadow-sm: 3px 3px 0 var(--shadow-color);
+  --shadow: 5px 5px 0 var(--shadow-color);
+  --shadow-lg: 8px 8px 0 var(--shadow-color);
+  --shadow-xl: 12px 12px 0 var(--shadow-color);
+  --shadow-press: 2px 2px 0 var(--shadow-color);
+
+  /* ---- type ---- */
+  --font-display: "Baloo 2", "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --step--1: clamp(0.78rem, 0.76rem + 0.1vw, 0.84rem);
+  --step-0: clamp(0.94rem, 0.9rem + 0.2vw, 1.02rem);
+  --step-1: clamp(1.1rem, 1.02rem + 0.4vw, 1.28rem);
+  --step-2: clamp(1.35rem, 1.2rem + 0.8vw, 1.7rem);
+  --step-3: clamp(1.7rem, 1.4rem + 1.4vw, 2.4rem);
+  --step-4: clamp(2.1rem, 1.6rem + 2.6vw, 3.4rem);
+  --step-5: clamp(2.6rem, 1.8rem + 4.4vw, 5rem);
+
+  /* ---- rhythm ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+  --container: 1180px;
+  --container-wide: 1360px;
+  --header-h: 78px;
+
+  /* ---- motion: tactile, short, never decorative-infinite ---- */
+  --ease-pop: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --t-fast: 120ms;
+  --t-base: 200ms;
+  --t-slow: 320ms;
+
+  --z-header: 60;
+  --z-drawer: 90;
+  --z-dialog: 100;
+  --z-toast: 120;
+
+  /* Flat SVG dot tile (no gradients anywhere in the design system). */
+  --dot-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Ccircle cx='4' cy='4' r='1.35' fill='%23151515' fill-opacity='0.13'/%3E%3C/svg%3E");
+}
+
+[data-theme="dark"] {
+  --dot-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Ccircle cx='4' cy='4' r='1.35' fill='%23fdf8ee' fill-opacity='0.14'/%3E%3C/svg%3E");
+}
+
+/* ==========================================================================
+   Night theme — same brutalist grammar, chalk-outline palette.
+   ========================================================================== */
+
+[data-theme="dark"] {
+  --bg: #17161d;
+  --surface: #221f2b;
+  --surface-alt: #2b2735;
+  --outline: #f6efe2;
+  --shadow-color: #f6efe2;
+  --text: #fdf8ee;
+  --text-muted: #cfc6bb;
+  --focus-ring: var(--yellow);
+  --paper: #221f2b;
+  --paper-2: #2b2735;
+  --ink-soft: #e6ddd0;
+}
+
+[data-theme="dark"] body {
+  color-scheme: dark;
+}
+
+/* Distinct accent pairs so coloured blocks stay readable in both themes. */
+:root {
+  --tone-red-bg: var(--red);
+  --tone-red-fg: var(--ink);
+  --tone-yellow-bg: var(--yellow);
+  --tone-yellow-fg: var(--ink);
+  --tone-blue-bg: var(--blue);
+  --tone-blue-fg: var(--ink);
+  --tone-mint-bg: var(--mint);
+  --tone-mint-fg: var(--ink);
+  --tone-pink-bg: var(--pink);
+  --tone-pink-fg: var(--ink);
+  --tone-ink-bg: var(--ink);
+  --tone-ink-fg: var(--paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 1ms;
+    --t-base: 1ms;
+    --t-slow: 1ms;
+    --ease-pop: linear;
+  }
+}

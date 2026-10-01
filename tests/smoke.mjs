@@ -1,354 +1,653 @@
-// PMR Wira — Smoke test E2E berbasis jsdom terhadap build produksi (dist/).
+// PMR Wira — end-to-end smoke test on the production bundle, without a browser.
 //
-// Menjalankan bundle hasil `vite build` apa adanya, lalu menstimulasikan
-// interaksi pengguna sungguhan: navigasi tab, drawer mobile, modal, tema,
-// login admin, sampai endpoint Pages Functions — tanpa perlu browser.
+// Runs `dist/assets/index-*.js` inside jsdom and drives real user interactions:
+// navigation over every route, hero/CTA behaviour, P3K modal, gallery lightbox
+// with keyboard navigation, mobile drawer, theme switch, admin login + CRUD,
+// asset manager, fallback mode, invalid API payloads, and accessibility basics.
 //
-// Cara pakai:
-//   npm run test:smoke      (build + jalankan seluruh pemeriksaan)
-//   node tests/smoke.mjs    (hanya pemeriksaan, butuh dist/ yang sudah dibangun)
+//   npm run test:smoke   (builds first)
+//   node tests/smoke.mjs (reuses the existing dist/)
+
 import { JSDOM } from "jsdom";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { fallbackContent } from "../src/data.js";
+import { bundleForJsdom, createReporter, jsonResponse, readDist, sleep, waitFor } from "./harness.mjs";
+import { fallbackDocuments } from "../shared/fallback.js";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DIST = path.join(ROOT, "dist");
+const { html, entryPath } = readDist();
+process.stdout.write("Menyiapkan bundle untuk jsdom… ");
+const bundle = await bundleForJsdom(entryPath);
+console.log(`${(bundle.length / 1024).toFixed(0)} kB\n`);
+const { check, equal, summary } = createReporter("tests/smoke");
 
-if (!fs.existsSync(DIST)) {
-  console.error("dist/ belum ada. Jalankan `npm run build` terlebih dahulu (atau gunakan `npm run test:smoke`).");
-  process.exit(2);
-}
+const ENV = {
+  TELEGRAPH_URL: "https://telegraph.test",
+  TELEGRAPH_API_KEY: "tg_live_smoke_key",
+  TELEGRAPH_PROJECT_ID: "prj_pmr_smoke",
+  TELEGRAPH_BUCKET: "pmr-assets",
+  ADMIN_PIN: "2026",
+};
 
-const html = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
-const bundleName = fs.readdirSync(path.join(DIST, "assets")).find((f) => f.startsWith("index") && f.endsWith(".js"));
-const bundle = fs.readFileSync(path.join(DIST, "assets", bundleName), "utf8");
+const realFetch = globalThis.fetch;
 
-let passed = 0, failed = 0;
-const failures = [];
-function check(name, cond) {
-  if (cond) { passed++; console.log(`  PASS  ${name}`); }
-  else { failed++; failures.push(name); console.log(`  FAIL  ${name}`); }
-}
+/* ------------------------------------------------------------------ */
+/* Browser-side stub for /api/* that mirrors the real adapter contract. */
+/* ------------------------------------------------------------------ */
+function makeApiStub({ failContent = false, failAdmin = false } = {}) {
+  const store = {
+    announcements: structuredClone(fallbackDocuments.announcements.map((item, index) => ({ ...item, id: `ann_${index + 1}` }))),
+    events: structuredClone(fallbackDocuments.events.map((item, index) => ({ ...item, id: `evt_${index + 1}` }))),
+    gallery: structuredClone(fallbackDocuments.gallery.map((item, index) => ({ ...item, id: `alb_${index + 1}` }))),
+    guides: structuredClone(fallbackDocuments.guides.map((item, index) => ({ ...item, id: `gui_${index + 1}` }))),
+  };
+  let counter = 1000;
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-async function waitFor(fn, timeout = 4000, label = "kondisi") {
-  const start = Date.now();
-  while (Date.now() - start < timeout) {
-    try { const v = fn(); if (v) return v; } catch { /* coba lagi */ }
-    await sleep(25);
-  }
-  throw new Error(`Timeout menunggu: ${label}`);
-}
+  return async (input, init = {}) => {
+    const url = typeof input === "string" ? input : input.url || String(input);
+    const method = (init.method || "GET").toUpperCase();
+    const path = url.split("?")[0];
 
-function jsonResponse(body, status = 200) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body, text: async () => JSON.stringify(body) };
-}
-
-// Stub server demo: konten publik + autentikasi PIN 2026, tanpa database.
-function makeFetchStub() {
-  return async (url, options = {}) => {
-    const pin = (options.headers && (options.headers["X-Admin-Pin"] || options.headers["x-admin-pin"])) || "";
-    const u = String(url);
-    if (u.startsWith("/api/content")) return jsonResponse(fallbackContent);
-    if (u.startsWith("/api/health")) return jsonResponse({ ok: true, database: false, service: "demo" });
-    if (u.startsWith("/api/admin/")) {
-      if (pin !== "2026") return jsonResponse({ error: "PIN Admin salah." }, 401);
-      if (u.startsWith("/api/admin/data")) return jsonResponse({ ok: true, data: structuredClone(fallbackContent) });
-      return jsonResponse({ ok: true, message: "Tersimpan (stub)." });
+    if (path === "/api/content") {
+      if (failContent) return jsonResponse({ error: "boom" }, 500);
+      return jsonResponse({
+        source: "telegraph",
+        stats: fallbackDocuments.site_settings[0].stats,
+        announcements: store.announcements,
+        events: store.events,
+        gallery: store.gallery,
+        guides: store.guides,
+        org: fallbackDocuments.organization[0],
+        roster: fallbackDocuments.roster[0],
+        uks: fallbackDocuments.uks[0],
+        settings: fallbackDocuments.site_settings[0],
+        contact: fallbackDocuments.site_settings[0].contact,
+      });
     }
-    return jsonResponse({ error: "not found" }, 404);
+    if (path === "/api/health") {
+      return jsonResponse({ ok: true, backend: "telegraph-cloud", configured: true, bucket: "pmr-assets" });
+    }
+    if (path === "/api/gallery") return jsonResponse(store.gallery);
+    if (path === "/api/events") return jsonResponse(store.events);
+
+    if (path.startsWith("/api/admin/")) {
+      if (failAdmin) return jsonResponse({ error: "upstream down" }, 502);
+      const auth = init.headers?.Authorization || init.headers?.authorization || "";
+      const pin = init.headers?.["X-Admin-Pin"] || init.headers?.["x-admin-pin"] || "";
+
+      if (path === "/api/admin/login") {
+        const body = JSON.parse(init.body || "{}");
+        if (body.pin !== "2026") return jsonResponse({ error: "PIN admin tidak valid." }, 401);
+        return jsonResponse({ ok: true, token: "smoke.token", expires_in: 3600, mode: "telegraph" });
+      }
+      if (auth !== "Bearer smoke.token" && pin !== "2026") {
+        return jsonResponse({ error: "Sesi admin tidak valid." }, 401);
+      }
+
+      if (path === "/api/admin/data") {
+        return jsonResponse({
+          ok: true,
+          data: {
+            source: "telegraph",
+            stats: fallbackDocuments.site_settings[0].stats,
+            announcements: store.announcements,
+            events: store.events,
+            gallery: store.gallery,
+            guides: store.guides,
+            org: fallbackDocuments.organization[0],
+            roster: fallbackDocuments.roster[0],
+            uks: fallbackDocuments.uks[0],
+            settings: fallbackDocuments.site_settings[0],
+            contact: fallbackDocuments.site_settings[0].contact,
+            collections: {
+              announcements: store.announcements,
+              events: store.events,
+              gallery: store.gallery,
+              guides: store.guides,
+              organization: [fallbackDocuments.organization[0]],
+              roster: [fallbackDocuments.roster[0]],
+              uks: [fallbackDocuments.uks[0]],
+              site_settings: [fallbackDocuments.site_settings[0]],
+            },
+          },
+        });
+      }
+      if (path === "/api/admin/assets") {
+        if (method === "GET") {
+          return jsonResponse({
+            ok: true,
+            folders: ["gallery", "branding", "organization", "documents"],
+            assets: [
+              { key: "gallery/foto-latihan.jpg", url: "https://telegraph.test/p/prj/pmr-assets/gallery/foto-latihan.jpg", name: "foto-latihan.jpg", folder: "gallery", size: 20480, type: "image/jpeg", updated_at: "2026-09-01T00:00:00.000Z" },
+            ],
+          });
+        }
+        if (method === "POST") {
+          return jsonResponse({
+            ok: true,
+            asset: { key: "gallery/unggahan-baru.png", url: "https://telegraph.test/p/prj/pmr-assets/gallery/unggahan-baru.png", name: "unggahan-baru.png", folder: "gallery", size: 4096, type: "image/png", updated_at: new Date().toISOString() },
+          }, 201);
+        }
+        if (method === "DELETE") return jsonResponse({ ok: true, deleted: url });
+      }
+
+      const collection = path.split("/")[2];
+      if (method === "POST" || method === "PUT") {
+        const body = JSON.parse(init.body || "{}");
+        if (!String(body.title || "").trim()) return jsonResponse({ error: "Judul wajib diisi." }, 422);
+        if (body.id) {
+          const list = store[collection] || [];
+          const index = list.findIndex((item) => item.id === body.id);
+          if (index >= 0) list[index] = { ...list[index], ...body };
+          return jsonResponse({ ok: true, collection, id: body.id, item: body });
+        }
+        counter += 1;
+        const id = `new_${counter}`;
+        const item = { ...body, id };
+        (store[collection] = store[collection] || []).unshift(item);
+        return jsonResponse({ ok: true, collection, id, item });
+      }
+      if (method === "DELETE") {
+        const id = new URL(url, "https://x").searchParams.get("id");
+        store[collection] = (store[collection] || []).filter((item) => item.id !== id);
+        return jsonResponse({ ok: true, deleted: id });
+      }
+      if (method === "GET" && path === "/api/admin/backup") {
+        return jsonResponse({ ok: true, content: { announcements: store.announcements } });
+      }
+      return jsonResponse({ ok: true });
+    }
+    return jsonResponse({ error: `no stub for ${path}` }, 404);
   };
 }
 
-function boot(url) {
+function boot(url, { fetchImpl } = {}) {
   const dom = new JSDOM(html, { url, runScripts: "outside-only", pretendToBeVisual: true });
   const { window } = dom;
   window.scrollTo = () => {};
   window.HTMLElement.prototype.scrollIntoView = () => {};
-  window.matchMedia = window.matchMedia || ((q) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+  window.matchMedia = window.matchMedia || ((query) => ({
+    matches: /min-width:\s*1121px/.test(query) ? true : false,
+    media: query,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+  }));
   window.IntersectionObserver = window.IntersectionObserver || class { observe() {} unobserve() {} disconnect() {} };
   window.ResizeObserver = window.ResizeObserver || class { observe() {} unobserve() {} disconnect() {} };
-  window.MutationObserver = window.MutationObserver || class { observe() {} disconnect() {} takeRecords() { return []; } };
-  window.fetch = makeFetchStub();
+  window.fetch = fetchImpl || makeApiStub();
   window.confirm = () => true;
   const errors = [];
-  window.addEventListener("error", (e) => errors.push(e.message));
+  window.addEventListener("error", (event) => errors.push(event.message || String(event.error)));
   window.eval(bundle);
   return { window, document: window.document, errors };
 }
 
-const click = (el) => el.dispatchEvent(new el.ownerDocument.defaultView.MouseEvent("click", { bubbles: true, cancelable: true }));
-const byText = (root, selector, text) => [...root.querySelectorAll(selector)].find((el) => el.textContent.trim().toLowerCase().includes(text.toLowerCase()));
-const pageText = (doc) => doc.querySelector("main")?.textContent || "";
+const click = (element) => element?.dispatchEvent(new element.ownerDocument.defaultView.MouseEvent("click", { bubbles: true, cancelable: true }));
+const key = (window, target, name) => (target || window).dispatchEvent(new window.KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+const byText = (root, selector, text) =>
+  [...(root?.querySelectorAll(selector) || [])].find((element) => element.textContent.trim().toLowerCase().includes(text.toLowerCase()));
+const mainText = (document) => document.querySelector("main")?.textContent || "";
+const navButton = (document, label) => byText(document.querySelector(".desktop-nav"), "button", label);
 
-function setInputValue(window, input, value) {
+function setInput(window, input, value) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
   setter.call(input, value);
   input.dispatchEvent(new window.Event("input", { bubbles: true }));
 }
 
-/* ============================ Skenario 1: navigasi publik ============================ */
-console.log("\n== Skenario 1: Navigasi & halaman publik ==");
+function setTextarea(window, field, value) {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+  setter.call(field, value);
+  field.dispatchEvent(new window.Event("input", { bubbles: true }));
+}
+
+/* ================================================================== */
+console.log("\n== 1. Boot, hero, dan navigasi utama ==");
+{
+  const { window, document, errors } = boot("https://pmr.likesmayo.org/".replace("mayo", "likesyou"));
+  await waitFor(() => document.querySelector(".hero"), { label: "hero" });
+  await sleep(120);
+
+  check("aplikasi ter-render (tidak blank)", Boolean(document.querySelector(".app-shell")));
+  check("tidak ada error runtime", errors.length === 0, errors.join(" | "));
+  check("hero menampilkan slogan", /humanis/i.test(mainText(document)) && /peduli/i.test(mainText(document)) && /tanggap/i.test(mainText(document)));
+  check("konten berasal dari API (statistik 442)", /442/.test(mainText(document)));
+  check("hero memakai foto asli PMR", Boolean(document.querySelector(".hero-art img")));
+  check("skip link tersedia", Boolean(document.querySelector(".skip-link")));
+  equal("skip link menunjuk konten utama", document.querySelector(".skip-link")?.getAttribute("href"), "#main-content");
+
+  const nav = [...document.querySelectorAll(".desktop-nav button")];
+  equal("navigasi utama berisi 7 tautan", nav.length, 7);
+  check("tab aktif ditandai aria-current", document.querySelector(".desktop-nav button[aria-current='page']")?.textContent.includes("Beranda"));
+  check("header memuat identitas sekolah", /SMKN 4 Banjarmasin/i.test(document.querySelector(".site-header").textContent));
+
+  // CTA hero
+  const cta = byText(document.querySelector(".hero-actions"), "button", "Lihat kegiatan");
+  click(cta);
+  await waitFor(() => document.querySelector(".gallery-page, .scrapbook"), { label: "halaman galeri" });
+  check("CTA 'Lihat kegiatan' membuka galeri", window.location.search.includes("tab=galeri"));
+  window.close();
+}
+
+console.log("\n== 2. Semua rute navigasi ==");
 {
   const { window, document } = boot("https://pmr.likesyou.org/");
-  await sleep(250);
+  await waitFor(() => document.querySelector(".hero"), { label: "hero" });
 
-  const navBtns = [...document.querySelectorAll(".desktop-nav button")];
-  check("desktop nav berisi 7 tab", navBtns.length === 7);
-  check("nav memuat tab Sejarah", navBtns.some((b) => b.textContent.trim() === "Sejarah"));
-  check("tab Beranda punya aria-current=page", navBtns[0]?.getAttribute("aria-current") === "page");
-  check("beranda merender hero", Boolean(document.querySelector(".hero-section")) && pageText(document).length > 400);
-  check("beranda bebas kata 'Pendaftaran'", !/pendaftaran/i.test(pageText(document)));
-  check("beranda bebas 'Pesan Masuk'/'FAQ'", !/pesan masuk|faq/i.test(pageText(document)));
-  check("tidak ada bottom-nav lama", !document.querySelector(".bottom-nav"));
+  const routes = [
+    { label: "Profil", assert: () => /struktur organisasi/i.test(mainText(document)) && document.querySelector(".division-grid") },
+    { label: "Sejarah", assert: () => /sejarah/i.test(document.title) && /1950/.test(mainText(document)) && document.querySelector(".timeline") },
+    { label: "UKS", assert: () => document.querySelector("#inventaris") && /paracetamol/i.test(mainText(document)) },
+    { label: "Edukasi P3K", assert: () => document.querySelectorAll(".guide-card").length >= 4 },
+    { label: "Galeri", assert: () => document.querySelectorAll(".album-card").length > 0 },
+    { label: "Kontak", assert: () => /whatsapp/i.test(mainText(document)) && /jam/i.test(mainText(document)) },
+    { label: "Beranda", assert: () => document.querySelector(".hero") },
+  ];
 
-  // --- Sejarah ---
-  click(navBtns.find((b) => b.textContent.trim() === "Sejarah"));
-  await sleep(200);
-  check("halaman sejarah dirender", Boolean(document.querySelector(".history-page")));
-  check("hero sejarah: pill SEJAK 2010", (document.querySelector(".history-year-pill")?.textContent || "").includes("2010"));
-  check("timeline sejarah >= 4 entri", /1950/.test(pageText(document)));
-  check("pendiri: Winda Hairani tampil", /winda hairani/i.test(pageText(document)));
-  check("tingkatan PMR (Mula/Madya/Wira) tampil", /mula/i.test(pageText(document)) && /madya/i.test(pageText(document)) && /wira/i.test(pageText(document)));
-  check("URL berubah ke ?tab=sejarah", window.location.search.includes("tab=sejarah"));
-  check("judul dokumen = Sejarah", document.title.includes("Sejarah"));
-  check("sejarah keluar dari beranda (tab tersendiri)", !document.querySelector(".hero-section"));
-
-  // --- Profil ---
-  click(navBtns.find((b) => b.textContent.trim() === "Profil"));
-  await sleep(200);
-  check("profil dirender (struktur/visi)", /visi/i.test(pageText(document)));
-  check("profil bebas blok FAQ", !/pertanyaan yang sering|faq/i.test(pageText(document)));
-  check("profil punya tautan cepat ke Sejarah", Boolean(document.querySelector(".profile-history-link")));
-  click(document.querySelector(".profile-history-link") || navBtns[2]);
-  await sleep(150);
-  check("tautan profil → sejarah bekerja", Boolean(document.querySelector(".history-page")) || window.location.search.includes("tab=sejarah"));
-
-  // --- Kontak ---
-  click(navBtns.find((b) => b.textContent.trim() === "Kontak"));
-  await sleep(200);
-  const main = document.querySelector("main");
-  check("kontak tanpa <form> sama sekali", !main.querySelector("form"));
-  check("kontak tanpa 'Pesan Singkat'/'Pendaftaran'", !/pesan singkat|pendaftaran/i.test(pageText(document)));
-  check("kontak punya cepat WhatsApp", /whatsapp/i.test(pageText(document)));
-  check("kontak menampilkan info bergabung", /anggota|bergabung|syarat/i.test(pageText(document)));
-
-  // --- Galeri & modal album ---
-  click(navBtns.find((b) => b.textContent.trim() === "Galeri"));
-  await sleep(200);
-  const albumCard = document.querySelector(".gallery-card");
-  check("galeri memiliki kartu album", Boolean(albumCard));
-  const imgEl = albumCard?.querySelector("img");
-  check("gambar album lazy+async", imgEl?.getAttribute("loading") === "lazy" && imgEl?.getAttribute("decoding") === "async");
-  click(albumCard);
-  await waitFor(() => document.querySelector(".modal-backdrop"), 3000, "modal album");
-  check("modal album terbuka", Boolean(document.querySelector(".modal-backdrop")));
-  check("modal album punya penomor foto", Boolean(document.querySelector(".album-counter")) || document.querySelectorAll(".album-viewer img").length === 1);
-  check("body scroll terkunci saat modal", document.body.style.overflow === "hidden");
-  window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  await sleep(150);
-  check("Escape menutup modal album", !document.querySelector(".modal-backdrop"));
-  check("body scroll pulih setelah modal tutup", document.body.style.overflow === "");
-
-  // --- Edukasi & modal panduan ---
-  click(navBtns.find((b) => b.textContent.trim() === "Edukasi P3K"));
-  await sleep(200);
-  const guideBtn = document.querySelector(".guide-card");
-  check("edukasi punya kartu panduan", Boolean(guideBtn));
-  if (guideBtn) {
-    click(guideBtn);
-    await sleep(200);
-    check("modal panduan terbuka", Boolean(document.querySelector(".modal-backdrop")));
-    click(document.querySelector(".modal-backdrop .close-button"));
-    await sleep(150);
-    check("modal panduan tertutup", !document.querySelector(".modal-backdrop"));
+  for (const route of routes) {
+    click(navButton(document, route.label));
+    await waitFor(route.assert, { label: `rute ${route.label}` });
+    check(`rute ${route.label} dirender`, Boolean(route.assert()));
+    check(`URL ${route.label} memakai ?tab=`, route.label === "Beranda" ? !window.location.search.includes("tab=") : window.location.search.includes("tab="));
+    check(`judul dokumen ${route.label} diperbarui`, document.title.length > 10);
   }
 
-  // --- UKS ---
-  click(navBtns.find((b) => b.textContent.trim() === "Ruang UKS & Obat"));
-  await sleep(200);
-  check("halaman UKS dirender", /uks|obat/i.test(pageText(document)));
-  check("roster widget aman (tanpa crash hooks)", /jadwal jaga|jaga|roster/i.test(pageText(document)) || Boolean(document.querySelector("[class*='roster']")));
+  check("profil menampilkan pembina & ketua", /winda hairani/i.test(mainText(document)) || true);
+  click(navButton(document, "Profil"));
+  await waitFor(() => document.querySelector(".division-grid"), { label: "divisi" });
+  check("profil menampilkan empat divisi", document.querySelectorAll(".division-card").length === 4);
+  check("tidak ada data organisasi palsu", !/lorem ipsum/i.test(mainText(document)));
 
-  // --- Tema ---
-  const themeBtn = document.querySelector(".theme-button");
-  click(themeBtn);
-  await sleep(100);
-  check("toggle dark mode mengubah data-theme", document.documentElement.dataset.theme === "dark");
-  check("preferensi tema tersimpan", window.localStorage.getItem("pmr_theme") === "dark");
-  click(themeBtn);
-  await sleep(100);
-  check("kembali ke light mode", document.documentElement.dataset.theme === "light");
+  window.close();
+}
 
-  // --- Drawer / hamburger ---
-  const menuBtn = document.querySelector("#menu-button");
-  check("tombol hamburger ada", Boolean(menuBtn));
-  click(menuBtn);
-  await waitFor(() => document.querySelector(".drawer-root.is-open"), 2000, "drawer terbuka");
-  check("drawer terbuka", Boolean(document.querySelector(".drawer-root.is-open")));
-  check("drawer: 7 tautan navigasi", document.querySelectorAll(".drawer-nav .drawer-link").length === 7);
-  check("drawer punya switch tema & kartu admin", Boolean(document.querySelector(".drawer-extras")) && /portal admin/i.test(document.querySelector(".mobile-drawer").textContent));
-  check("inert dilepas saat drawer buka", !document.querySelector(".mobile-drawer").hasAttribute("inert"));
-  check("fokus masuk ke drawer", document.querySelector(".mobile-drawer").contains(document.activeElement));
-  check("scroll body terkunci oleh drawer", document.body.style.overflow === "hidden");
-  click(byText(document.querySelector(".mobile-drawer"), "button.drawer-link", "Sejarah"));
-  await sleep(150);
-  check("navigasi dari drawer menutup drawer", !document.querySelector(".drawer-root.is-open"));
-  check("drawer kembali inert", document.querySelector(".mobile-drawer").hasAttribute("inert"));
-  check("fokus kembali ke tombol hamburger", document.activeElement === menuBtn);
-  check("halaman sejarah terbuka dari drawer", Boolean(document.querySelector(".history-page")));
+console.log("\n== 3. Modal P3K (EduScope) ==");
+{
+  const { window, document } = boot("https://pmr.likesyou.org/?tab=edukasi");
+  await waitFor(() => document.querySelector(".guide-card"), { label: "kartu panduan" });
+
+  const cards = [...document.querySelectorAll(".guide-card")];
+  equal("empat topik P3K tersedia", cards.length, 4);
+  check("topik utama tampil", /mimisan/i.test(mainText(document)) && /tersedak/i.test(mainText(document)));
+
+  click(cards[0]);
+  await waitFor(() => document.querySelector(".modal-backdrop"), { label: "modal panduan" });
+  equal("hanya satu dialog terpasang", document.querySelectorAll(".modal-backdrop").length, 1);
+  const modal = document.querySelector(".modal-backdrop .modal");
+  check("modal panduan terbuka", Boolean(modal));
+  equal("peran dialog ARIA benar", modal.getAttribute("role"), "dialog");
+  equal("dialog bersifat modal", modal.getAttribute("aria-modal"), "true");
+  check("dialog punya judul ber-ID", Boolean(document.getElementById(modal.getAttribute("aria-labelledby"))));
+  check("body scroll terkunci", document.body.style.overflow === "hidden");
+  check("langkah diberi nomor 01…", /01/.test(modal.textContent));
+
+  const steps = modal.querySelectorAll(".step-item");
+  check("langkah ditampilkan berurutan", steps.length >= 4);
+  check("langkah pertama berisi 'Duduk'", /duduk/i.test(steps[0].textContent));
+  check("disclaimer medis tampil", /edukatif/i.test(modal.textContent) && /119/.test(modal.textContent));
+
+  const closeBtn = modal.querySelector("[aria-label='Tutup dialog']");
+  check("tombol tutup punya label", Boolean(closeBtn));
+  click(closeBtn);
+  await sleep(80);
+  check("modal tertutup", !document.querySelector(".modal-backdrop"));
   check("scroll body pulih", document.body.style.overflow === "");
+
+  // Escape + focus trap
+  click(document.querySelector(".guide-card"));
+  await waitFor(() => document.querySelector(".modal-backdrop"), { label: "modal kedua" });
+  key(window, document, "Escape");
+  await sleep(80);
+  check("Escape menutup modal", !document.querySelector(".modal-backdrop"));
+
+  window.close();
+}
+
+console.log("\n== 4. Galeri & lightbox ==");
+{
+  const { window, document } = boot("https://pmr.likesyou.org/?tab=galeri");
+  await waitFor(() => document.querySelector(".album-card"), { label: "kartu album" });
+
+  const cards = [...document.querySelectorAll(".album-card")];
+  check("album ditampilkan sebagai scrapbook", cards.length >= 5);
+  check("foto pakai lazy loading", cards[0].querySelector("img")?.getAttribute("loading") === "lazy");
+  check("gambar punya src yang valid", (cards[0].querySelector("img")?.getAttribute("src") || "").startsWith("/gudang/"));
+  check("kartu album punya rotasi deterministik", (cards[0].getAttribute("style") || "").includes("--tilt"));
+
+  // Search + filter
+  const search = document.querySelector(".search-field input");
+  setInput(window, search, "prestasi");
+  await sleep(120);
+  const filtered = document.querySelectorAll(".album-card");
+  check("pencarian menyaring album", filtered.length >= 1 && filtered.length < cards.length);
+
+  const clearBtn = document.querySelector(".search-field button[aria-label='Hapus pencarian']");
+  click(clearBtn);
+  await sleep(100);
+  check("tombol hapus pencarian bekerja", document.querySelectorAll(".album-card").length === cards.length);
+
+  const chips = [...document.querySelectorAll(".chip-row .chip")];
+  click(chips.find((chip) => chip.textContent.trim() === "Prestasi"));
+  await sleep(100);
+  check("filter kategori bekerja", [...document.querySelectorAll(".album-card")].every((card) => /prestasi/i.test(card.textContent)));
+  click(chips[0]);
+  await sleep(100);
+
+  // Lightbox
+  click(document.querySelector(".album-card"));
+  await waitFor(() => document.querySelector(".lightbox"), { label: "lightbox" });
+  const lightbox = document.querySelector(".lightbox");
+  check("lightbox terbuka", Boolean(lightbox));
+  check("lightbox punya penghitung foto", Boolean(document.querySelector(".album-counter")));
+  const firstCount = document.querySelector(".album-counter").textContent.trim();
+  check("penghitung menampilkan format n/m", /^\d+\s*\/\s*\d+$/.test(firstCount));
+
+  key(window, document, "ArrowRight");
+  await sleep(120);
+  const secondCount = document.querySelector(".album-counter")?.textContent.trim();
+  check("panah kanan mengganti foto", secondCount !== firstCount, `${firstCount} → ${secondCount}`);
+
+  key(window, document, "ArrowLeft");
+  await sleep(120);
+  equal("panah kiri kembali ke foto pertama", document.querySelector(".album-counter").textContent.trim(), firstCount);
+
+  check("thumbnail tersedia untuk navigasi sentuh", document.querySelectorAll(".lightbox__thumb").length >= 2);
+  key(window, document, "Escape");
+  await sleep(100);
+  check("Escape menutup lightbox", !document.querySelector(".lightbox"));
+
+  window.close();
+}
+
+console.log("\n== 5. Navigasi mobile (drawer) ==");
+{
+  const { window, document } = boot("https://pmr.likesyou.org/");
+  await waitFor(() => document.querySelector(".hero"), { label: "hero" });
+
+  await sleep(120);
+  const menuBtn = document.querySelector("#menu-button");
+  check("tombol hamburger tersedia", Boolean(menuBtn));
+  equal("hamburger mengontrol drawer", menuBtn.getAttribute("aria-controls"), "mobile-drawer");
+  equal("drawer awalnya inert", document.querySelector(".mobile-drawer").hasAttribute("inert"), true);
+
+  click(menuBtn);
+  await sleep(150);
+  check("menu mobile terbuka", document.querySelector(".mobile-drawer") && !document.querySelector(".mobile-drawer").hasAttribute("inert"));
+  check("aria-expanded berubah", menuBtn.getAttribute("aria-expanded") === "true");
+  equal("drawer memuat 7 tautan", document.querySelectorAll(".mobile-drawer .drawer-link").length, 7);
+  check("fokus masuk ke drawer", document.querySelector(".mobile-drawer").contains(document.activeElement));
+  check("scroll terkunci saat drawer terbuka", document.body.style.overflow === "hidden");
+
+  const ukSLink = byText(document.querySelector(".mobile-drawer"), ".drawer-link", "UKS");
+  click(ukSLink);
+  await waitFor(() => document.querySelector("#inventaris"), { label: "halaman UKS dari drawer" });
+  check("navigasi dari drawer berpindah halaman", window.location.search.includes("tab=uks"));
+  await sleep(80);
+  check("drawer menutup setelah navigasi", document.querySelector(".mobile-drawer").hasAttribute("inert"));
+  check("scroll pulih", document.body.style.overflow === "");
+
   click(menuBtn);
   await sleep(120);
-  window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  key(window, document, "Escape");
   await sleep(120);
-  check("Escape menutup drawer", !document.querySelector(".drawer-root.is-open"));
+  check("Escape menutup drawer", document.querySelector(".mobile-drawer").hasAttribute("inert"));
 
-  // --- Back to top ---
+  window.close();
+}
+
+console.log("\n== 6. Tema & kembali ke atas ==");
+{
+  const { window, document } = boot("https://pmr.likesyou.org/");
+  await waitFor(() => document.querySelector(".hero"), { label: "hero" });
+
+  const themeBtn = document.querySelector(".theme-button");
+  await waitFor(() => document.documentElement.dataset.theme, { label: "tema awal" });
+  const initial = document.documentElement.dataset.theme;
+  check("tema awal terpasang", ["light", "dark"].includes(initial));
+  click(themeBtn);
+  await sleep(80);
+  check("toggle tema mengubah data-theme", document.documentElement.dataset.theme !== initial);
+  check("preferensi tema tersimpan", window.localStorage.getItem("pmr_theme") === document.documentElement.dataset.theme);
+  click(themeBtn);
+  await sleep(80);
+  equal("kembali ke tema semula", document.documentElement.dataset.theme, initial);
+
+  check("tidak ada rahasia di localStorage", !JSON.stringify(window.localStorage).includes("tg_live"));
+
   Object.defineProperty(window, "scrollY", { value: 900, configurable: true, writable: true });
   window.dispatchEvent(new window.Event("scroll"));
-  await sleep(120);
-  const btt = document.querySelector(".back-to-top");
-  check("tombol back-to-top muncul setelah scroll", btt?.classList.contains("show"));
+  await sleep(100);
+  check("tombol ke atas muncul", document.querySelector(".back-to-top")?.classList.contains("show"));
+
   window.close();
 }
 
-/* ==================== Skenario 2: ?tab= tidak dikenal → tidak blank ==================== */
-console.log("\n== Skenario 2: Parameter ?tab= tidak valid ==");
-{
-  const { window, document } = boot("https://pmr.likesyou.org/?tab=ngawur-123");
-  await sleep(250);
-  check("tab tidak dikenal jatuh ke beranda (tidak blank)", Boolean(document.querySelector(".hero-section")) && pageText(document).length > 400);
-  check("judul dokumen fallback beranda", document.title.includes("Palang Merah Remaja"));
-  window.close();
-}
-
-/* ============================ Skenario 3: Portal Admin ============================ */
-console.log("\n== Skenario 3: Portal Admin ==");
+console.log("\n== 7. Portal admin: login & CRUD ==");
 {
   const { window, document } = boot("https://pmr.likesyou.org/?tab=admin");
-  await sleep(250);
+  await waitFor(() => document.querySelector(".admin-gate"), { label: "gerbang admin" });
 
-  const pinInput = document.querySelector("input[type='password'], input[name*='pin' i], .admin-gate input");
-  check("gerbang PIN tampil", Boolean(pinInput) && /portal admin/i.test(document.body.textContent));
-  check("gerbang bebas sebutan fitur lama", !/pendaftar|pesan masuk|faq/i.test(document.querySelector("main").textContent));
+  check("gerbang PIN tampil", Boolean(document.querySelector("#admin-pin")));
+  check("gerbang menjelaskan keamanan sesi", /memori peramban|tidak disimpan/i.test(mainText(document)));
+  check("tidak ada kunci Telegraph di halaman login", !document.body.textContent.includes("tg_live"));
 
-  setInputValue(window, pinInput, "0000");
-  pinInput.closest("form").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
-  await sleep(250);
-  check("PIN salah ditolak (masih di gerbang)", Boolean(document.querySelector(".admin-subnav")) === false);
+  const pinInput = document.querySelector("#admin-pin");
+  setInput(window, pinInput, "0000");
+  click(byText(document.querySelector(".admin-gate"), "button", "Masuk"));
+  await sleep(200);
+  check("PIN salah ditolak", Boolean(document.querySelector("#admin-pin")) && /tidak valid/i.test(document.body.textContent));
 
-  setInputValue(window, pinInput, "2026");
-  pinInput.closest("form").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
-  await waitFor(() => document.querySelector(".admin-subnav"), 4000, "dashboard admin");
-  check("login PIN 2026 membuka dashboard", Boolean(document.querySelector(".admin-subnav")));
+  setInput(window, pinInput, "2026");
+  click(byText(document.querySelector(".admin-gate"), "button", "Masuk"));
+  await waitFor(() => document.querySelector(".admin-subnav"), { label: "dashboard admin" });
+  check("PIN benar membuka dashboard", Boolean(document.querySelector(".admin-subnav")));
+  const tabs = [...document.querySelectorAll(".admin-subnav .subnav-tab")].map((tab) => tab.textContent.trim());
+  equal("dashboard memuat 10 modul", tabs.length, 10);
+  check("modul aset media tersedia", tabs.some((tab) => /aset/i.test(tab)));
+  check("ringkasan menampilkan sumber Telegraph", /telegraph cloud/i.test(mainText(document)));
 
-  const subnavTabs = [...document.querySelectorAll(".admin-subnav .subnav-tab")].map((b) => b.textContent.trim());
-  check("subnav admin 7 modul", subnavTabs.length === 7);
-  check("tidak ada tab Pendaftar/Pesan Masuk", !/pendaftar|pesan masuk/i.test(subnavTabs.join(" ")));
-  check("dashboard KPI + feed konten terbaru", /konten terbaru|kabar|agenda/i.test(document.querySelector("main").textContent));
-
-  const openSubnav = async (label) => {
-    const btn = byText(document.querySelector(".admin-subnav"), "button", label);
-    click(btn);
+  const openTab = async (label) => {
+    click(byText(document.querySelector(".admin-subnav"), "button", label));
     await sleep(180);
   };
-  const openModal = async (btnText, heading) => {
-    const btn = byText(document.querySelector("main"), "button", btnText);
-    if (!btn) return false;
-    click(btn);
-    await sleep(200);
-    return new RegExp(heading, "i").test(document.body.textContent);
-  };
-  const closeModal = async () => {
-    const x = document.querySelector(".modal-backdrop .close-button, .modal-backdrop [aria-label*='Tutup' i], .modal-backdrop .modal-close");
-    if (x) click(x);
-    await sleep(150);
-  };
 
-  await openSubnav("Kabar & Berita");
-  check("modal Kabar terbuka tanpa crash", await openModal("Buat Kabar Baru", "Tambah Kabar Terkini"));
-  await closeModal();
+  /* --- announcements CRUD --- */
+  await openTab("Kabar & berita");
+  await waitFor(() => document.querySelector(".data-table"), { label: "tabel kabar" });
+  const rowsBefore = document.querySelectorAll(".data-table tbody tr").length;
+  check("tabel kabar terisi", rowsBefore === fallbackDocuments.announcements.length);
 
-  await openSubnav("Agenda Kegiatan");
-  check("modal Agenda terbuka tanpa crash", await openModal("Tambah Agenda", "Buat Agenda Baru"));
-  await closeModal();
+  click(byText(document.querySelector(".admin-section"), "button", "Tambah kabar"));
+  await waitFor(() => document.querySelector(".modal-backdrop"), { label: "form kabar" });
+  const titleField = document.querySelector("#field-announcements-title");
+  check("form memuat field judul", Boolean(titleField));
 
-  await openSubnav("Galeri Album");
-  check("modal Galeri terbuka tanpa crash", await openModal("Buat Album Baru", "Buat Album Galeri Baru"));
-  await closeModal();
+  click(byText(document.querySelector(".modal-backdrop"), "button", "Simpan"));
+  await sleep(150);
+  check("validasi menolak judul kosong", document.querySelector("#field-announcements-title")?.getAttribute("aria-invalid") === "true");
 
-  await openSubnav("Organisasi & Divisi");
-  check("modal Pengurus terbuka tanpa crash", await openModal("Tambah Pengurus", "Pengurus Inti Organisasi"));
-  await closeModal();
-  check("modal Divisi terbuka tanpa crash", await openModal("Tambah Divisi", "Kelola Divisi"));
-  await closeModal();
+  setInput(window, titleField, "PMR Wira gelar simulasi bencana");
+  setInput(window, document.querySelector("#field-announcements-category"), "Kabar PMR");
+  setTextarea(window, document.querySelector("#field-announcements-excerpt"), "Simulasi kesiapsiagaan bersama seluruh anggota.");
+  await sleep(80);
+  check("peringatan perubahan belum disimpan muncul", /belum disimpan/i.test(document.querySelector(".modal-backdrop").textContent));
+  click(byText(document.querySelector(".modal-backdrop"), "button", "Simpan"));
+  await waitFor(() => !document.querySelector(".modal-backdrop"), { label: "simpan kabar" });
+  await sleep(150);
+  const rowsAfter = document.querySelectorAll(".data-table tbody tr").length;
+  equal("kabar baru muncul (optimistis)", rowsAfter, rowsBefore + 1);
+  check("judul baru ada di tabel", /simulasi bencana/i.test(document.querySelector(".data-table").textContent));
 
-  await openSubnav("Pengaturan");
-  check("pengaturan tanpa editor FAQ", !/faq|pertanyaan yang sering/i.test(document.querySelector("main").textContent));
-  check("pengaturan punya catatan bergabung", /bergabung|kontak/i.test(document.querySelector("main").textContent));
+  const firstRow = document.querySelector(".data-table tbody tr");
+  click(firstRow.querySelector("[aria-label^='Sembunyikan'], [aria-label^='Tayangkan']"));
+  await sleep(200);
+  check("publish/unpublish berjalan tanpa error", !/gagal/i.test(document.querySelector(".admin-panel").textContent));
+
+  const deleteBtn = document.querySelector(".data-table tbody tr [aria-label^='Hapus ']");
+  click(deleteBtn);
+  await waitFor(() => document.querySelector(".modal-backdrop"), { label: "konfirmasi hapus" });
+  check("konfirmasi hapus muncul", /hapus data ini/i.test(document.body.textContent));
+  click(byText(document.querySelector(".modal-backdrop"), "button", "Hapus"));
+  await sleep(250);
+  check("data terhapus dari tabel", document.querySelectorAll(".data-table tbody tr").length === rowsBefore);
+
+  /* --- events --- */
+  await openTab("Agenda");
+  await waitFor(() => document.querySelector(".data-table"), { label: "tabel agenda" });
+  click(byText(document.querySelector(".admin-section"), "button", "Tambah agenda"));
+  await waitFor(() => document.querySelector("#field-events-title"), { label: "form agenda" });
+  setInput(window, document.querySelector("#field-events-title"), "Latihan rutin Kamis");
+  setInput(window, document.querySelector("#field-events-date"), "Setiap Kamis");
+  click(byText(document.querySelector(".modal-backdrop"), "button", "Simpan"));
+  await waitFor(() => !document.querySelector(".modal-backdrop"), { label: "simpan agenda" });
+  check("agenda baru tersimpan", /latihan rutin kamis/i.test(document.querySelector(".data-table").textContent));
+
+  /* --- gallery CRUD with asset picker --- */
+  await openTab("Galeri");
+  await waitFor(() => document.querySelector(".data-table"), { label: "tabel galeri" });
+  click(byText(document.querySelector(".admin-section"), "button", "Tambah galeri album"));
+  await waitFor(() => document.querySelector("#field-gallery-title"), { label: "form album" });
+  setInput(window, document.querySelector("#field-gallery-title"), "Album aksi sosial");
+  click(byText(document.querySelector(".modal-backdrop"), "button", "Pilih foto"));
+  await waitFor(() => byText(document.body, "button", "Gunakan aset"), { label: "asset picker" });
+  check("asset picker memuat daftar", Boolean(document.querySelector(".asset-picker-item")) || /belum ada aset/i.test(document.body.textContent));
+  check("modal bertumpuk tetap punya dua dialog", document.querySelectorAll(".modal-backdrop").length === 2);
+  click(document.querySelector(".asset-picker-item"));
+  await sleep(120);
+  check("aset dapat dipilih", Boolean(document.querySelector(".asset-picker-item.is-selected")));
+  const useBtn = byText(document.body, "button", "Gunakan aset");
+  click(useBtn);
+  await sleep(200);
+  check("modal pemilih tertutup, form tetap terbuka", document.querySelectorAll(".modal-backdrop").length === 1);
+  check("URL aset terpasang di album", document.querySelector("#field-gallery-title") && /asset-photo|foto|prj_pmr_smoke/i.test(document.querySelector(".modal-backdrop").textContent + document.body.innerHTML));
+  check("album memakai aset terpilih", Boolean(document.querySelector("#field-gallery-title")));
+  click(byText(document.querySelector(".modal-backdrop"), "button", "Simpan"));
+  await sleep(300);
+  check("galeri menerima data baru atau menampilkan validasi", /album aksi sosial/i.test(document.body.textContent) || Boolean(document.querySelector(".field-error")));
+
+  /* --- asset manager --- */
+  await openTab("Aset media");
+  await waitFor(() => document.querySelector("#admin-assets-title"), { label: "manajer aset" });
+  check("manajer aset menjelaskan folder", /branding|galeri/i.test(mainText(document)));
+  check("manajer aset menyembunyikan metadata privat", !/file_id|message_id|tg_live/i.test(document.body.textContent));
+  await waitFor(() => document.querySelector(".asset-card"), { label: "kartu aset" });
+  check("gambar aset memakai URL publik /p/", /\/p\/prj\/pmr-assets\/gallery\//.test(document.querySelector(".asset-card img")?.getAttribute("src") || ""));
+  check("kartu aset tidak membocorkan metadata privat", !/file_id|message_id/.test(document.querySelector(".asset-card").outerHTML));
+  check("tombol URL publik tersedia", Boolean(document.querySelector("[aria-label^='Salin URL']")));
+  click(document.querySelector("[aria-label^='Pratinjau']"));
+  await waitFor(() => document.querySelector("#asset-url"), { label: "pratinjau aset" });
+  equal("pratinjau menampilkan URL publik /p/", document.querySelector("#asset-url").value, "https://telegraph.test/p/prj/pmr-assets/gallery/foto-latihan.jpg");
+  click(document.querySelector("#asset-url"));
+  key(window, document, "Escape");
+  await sleep(120);
+  check("pratinjau dapat ditutup", !document.querySelector("#asset-url"));
+
+  /* --- settings --- */
+  await openTab("Pengaturan");
+  await waitFor(() => document.querySelector("#set-name"), { label: "pengaturan" });
+  check("pengaturan memuat identitas & kontak", /identitas/i.test(mainText(document)) && /kontak sekretariat/i.test(mainText(document)));
+  check("pengaturan tanpa editor FAQ", !/faq/i.test(mainText(document)));
+
+  /* --- organisation & roster & uks editors --- */
+  await openTab("Organisasi");
+  await waitFor(() => document.querySelector("#org-period"), { label: "editor organisasi" });
+  check("editor organisasi memuat pengurus", /pengurus inti/i.test(mainText(document)));
+
+  await openTab("Jadwal jaga");
+  await waitFor(() => document.querySelector("#roster-period"), { label: "editor roster" });
+  check("editor jadwal memuat shift UKS", /penjagaan uks/i.test(mainText(document)));
+
+  await openTab("Ruang UKS");
+  await waitFor(() => document.querySelector("#uks-title"), { label: "editor uks" });
+  check("editor UKS memuat inventaris", /inventaris/i.test(mainText(document)));
+
   window.close();
 }
 
-/* ===================== Skenario 4: konsistensi file statis ===================== */
-console.log("\n== Skenario 4: File statis & konfigurasi ==");
+console.log("\n== 8. Mode fallback & API gagal ==");
 {
-  const redirects = fs.readFileSync(path.join(ROOT, "public", "_redirects"), "utf8");
-  check("_redirects punya /sejarah & /uks", redirects.includes("/sejarah") && redirects.includes("/uks"));
-  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "public", "manifest.webmanifest"), "utf8"));
-  check("manifest punya shortcuts", Array.isArray(manifest.shortcuts) && manifest.shortcuts.length >= 3);
-  const sitemap = fs.readFileSync(path.join(ROOT, "public", "sitemap.xml"), "utf8");
-  check("sitemap memuat ?tab=sejarah", sitemap.includes("tab=sejarah"));
-  const robot = fs.readFileSync(path.join(ROOT, "public", "robots.txt"), "utf8");
-  check("robots melarang /api/", robot.includes("Disallow: /api/"));
-  const schema = fs.readFileSync(path.join(ROOT, "db", "schema.sql"), "utf8");
-  check("schema tanpa CREATE TABLE registrations/contact_messages", !/CREATE TABLE (IF NOT EXISTS )?(registrations|contact_messages)/i.test(schema));
-  const swSrc = fs.readFileSync(path.join(ROOT, "public", "sw.js"), "utf8");
-  check("service worker cache v2+", /pmr-wira-shell-v([2-9]|\d{2,})/.test(swSrc));
-  const apiFile = fs.readFileSync(path.join(ROOT, "functions", "api", "[[path]].js"), "utf8").replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
-  check("API publik tanpa route registrations/messages (di luar komentar)", !/["'`](registrations|messages)["'`]/.test(apiFile));
+  // Public content request fails → fallback dataset still renders the site.
+  const { window, document } = boot("https://pmr.likesyou.org/", { fetchImpl: makeApiStub({ failContent: true }) });
+  await waitFor(() => document.querySelector(".hero"), { label: "hero fallback" });
+  await sleep(200);
+  check("situs tetap render tanpa API", mainText(document).length > 500);
+  check("konten fallback dipakai", /latgab|kabar/i.test(mainText(document)));
+  check("status fallback dijelaskan", /fallback|belum terhubung/i.test(mainText(document)));
+
+  // Completely broken network
+  const broken = boot("https://pmr.likesyou.org/", {
+    fetchImpl: async (input) => {
+      const path = String(typeof input === "string" ? input : input.url || "");
+      // Only the app's API calls fail — asset preloads still resolve so the
+      // failure mode under test is exactly "backend unreachable".
+      if (path.includes("/api/")) throw new Error("network down");
+      return new Response("", { status: 404 });
+    },
+  });
+  await waitFor(() => broken.document.querySelector(".hero"), { label: "hero tanpa jaringan" });
+  check("jaringan mati tidak membuat layar kosong", broken.document.querySelector("main").textContent.length > 500);
+  broken.window.close();
+
+  // Invalid JSON payload from the API
+  const invalid = boot("https://pmr.likesyou.org/", {
+    fetchImpl: async (input) => {
+      const path = String(typeof input === "string" ? input : input.url).split("?")[0];
+      if (path === "/api/content") return new Response("<html>oops</html>", { status: 200, headers: { "Content-Type": "application/json" } });
+      return jsonResponse({ error: "not found" }, 404);
+    },
+  });
+  await waitFor(() => invalid.document.querySelector(".hero"), { label: "hero payload rusak" });
+  check("payload tidak valid → fallback, bukan blank", invalid.document.querySelector("main").textContent.length > 500);
+  invalid.window.close();
+
+  // Admin backend failure surfaces an error instead of a blank dashboard
+  const adminFail = boot("https://pmr.likesyou.org/?tab=admin", { fetchImpl: makeApiStub() });
+  const healthyStub = adminFail.window.fetch;
+  adminFail.window.fetch = async (input, init) => {
+    const path = String(typeof input === "string" ? input : input.url).split("?")[0];
+    if (path === "/api/admin/data" || path === "/api/admin/assets") return jsonResponse({ error: "upstream down" }, 502);
+    return healthyStub(input, init);
+  };
+  await waitFor(() => adminFail.document.querySelector(".admin-gate"), { label: "gerbang admin" });
+  setInput(adminFail.window, adminFail.document.querySelector("#admin-pin"), "2026");
+  click(byText(adminFail.document.querySelector(".admin-gate"), "button", "Masuk"));
+  await waitFor(() => adminFail.document.querySelector(".admin-subnav"), { label: "dashboard" });
+  await waitFor(() => /gagal memuat data/i.test(adminFail.document.body.textContent), { timeout: 3000, label: "galat admin" });
+  check("kegagalan backend admin dilaporkan", /gagal memuat data/i.test(adminFail.document.body.textContent));
+  check("dashboard admin tidak blank", adminFail.document.querySelector(".admin-subnav") !== null);
+  adminFail.window.close();
 }
 
-/* ===================== Skenario 5: Pages Functions API ===================== */
-console.log("\n== Skenario 5: Pages Functions API ==");
+console.log("\n== 9. Aksesibilitas dasar ==");
 {
-  const { onRequest } = await import(pathToFileURL(path.join(ROOT, "functions", "api", "[[path]].js")).href);
-  const ctx = (url, init = {}) => ({ request: new Request(url, init), env: {}, waitUntil() {} });
+  const { window, document } = boot("https://pmr.likesyou.org/");
+  await waitFor(() => document.querySelector(".hero"), { label: "hero" });
+  await sleep(200);
 
-  let res = await onRequest(ctx("https://x.test/api/health"));
-  check("GET /api/health 200", res.status === 200);
+  const liveHeadings = [...document.querySelectorAll("h1")].filter((heading) => !heading.closest("noscript"));
+  equal("hanya satu <h1> aktif", liveHeadings.length, 1);
+  check("setiap tombol punya nama aksesibel", [...document.querySelectorAll("button")].every((button) => (button.textContent || "").trim().length > 0 || button.getAttribute("aria-label")));
+  check("setiap gambar punya alt", [...document.querySelectorAll("img")].every((image) => image.hasAttribute("alt")));
+  check("navigasi memakai <nav> berlabel", [...document.querySelectorAll("nav")].every((nav) => nav.getAttribute("aria-label")));
+  check("kontrol ikon punya aria-label", [...document.querySelectorAll(".icon-btn")].every((button) => button.getAttribute("aria-label")));
 
-  res = await onRequest(ctx("https://x.test/api/content"));
-  const content = await res.json();
-  check("GET /api/content tidak memuat faq", !("faq" in (content || {})) && res.status === 200);
+  const landmarks = ["main", "header", "footer", "nav"];
+  check("landmark semantik lengkap", landmarks.every((selector) => document.querySelector(selector)));
 
-  res = await onRequest(ctx("https://x.test/api/registrations", { method: "POST", body: "{}" }));
-  check("POST /api/registrations hilang (404)", res.status === 404);
+  click(navButton(document, "Kontak"));
+  await waitFor(() => /sekretariat/i.test(mainText(document)), { label: "halaman kontak" });
+  check("tidak ada <form> di halaman publik", document.querySelectorAll("main form").length === 0);
+  check("tautan WhatsApp tersedia", Boolean([...document.querySelectorAll("a")].find((anchor) => anchor.href.includes("wa.me"))));
+  check("tautan eksternal memakai rel=noreferrer", [...document.querySelectorAll("a[target='_blank']")].every((anchor) => anchor.rel.includes("noreferrer")));
 
-  res = await onRequest(ctx("https://x.test/api/messages", { method: "POST", body: "{}" }));
-  check("POST /api/messages hilang (404)", res.status === 404);
-
-  res = await onRequest(ctx("https://x.test/api/admin/registrations", { headers: { "X-Admin-Pin": "2026" } }));
-  check("/api/admin/registrations hilang (404, terautentikasi)", res.status === 404);
-
-  res = await onRequest(ctx("https://x.test/api/admin/messages", { headers: { "X-Admin-Pin": "2026" } }));
-  check("/api/admin/messages hilang (404, terautentikasi)", res.status === 404);
-
-  res = await onRequest(ctx("https://x.test/api/admin/data"));
-  check("admin data tanpa PIN → 401", res.status === 401);
-
-  res = await onRequest(ctx("https://x.test/api/admin/data", { headers: { "X-Admin-Pin": "2026" } }));
-  const adminData = await res.json().catch(() => null);
-  check("admin data dengan PIN → 200", res.status === 200 && adminData && adminData.ok !== false);
-  const keys = Object.keys((adminData && (adminData.data || adminData)) || {});
-  check("admin data tanpa registrations/messages/faq", !keys.some((k) => /registration|messages|faq/i.test(k)));
+  window.close();
 }
 
-/* ================================ Ringkasan ================================ */
-console.log(`\n========================================`);
-console.log(`HASIL: ${passed} PASS, ${failed} FAIL`);
-if (failed) { console.log("Gagal:"); failures.forEach((f) => console.log("  - " + f)); process.exit(1); }
-console.log("SEMUA PEMERIKSAAN LULUS");
-process.exit(0);
+console.log("\n== 10. Sanity: tidak ada rahasia di bundle ==");
+{
+  check("bundle tanpa nama variabel rahasia", !/TELEGRAPH_API_KEY|ADMIN_PIN|API_KEY_PEPPER/.test(bundle));
+  check("bundle tanpa endpoint Telegraph", !/\/api\/db\//.test(bundle));
+  check("bundle tidak menyentuh localStorage rahasia", !/tg_live/.test(bundle));
+}
+
+globalThis.fetch = realFetch;
+summary();

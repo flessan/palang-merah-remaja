@@ -1,9 +1,10 @@
-# Jalur bersih opsional untuk SPA berbasis tab.
-# Dialihkan (302) ke URL kanonik ?tab= agar sesuai sitemap & logika pemilihan tab aplikasi.
-# Jalur API sengaja tidak punya aturan wildcard.
-/profil     /?tab=profil    302
-/sejarah    /?tab=sejarah   302
-/uks        /?tab=uks       302
-/edukasi    /?tab=edukasi   302
-/galeri     /?tab=galeri    302
-/kontak     /?tab=kontak    302
+# URL bersih lama (dipakai sejak versi PHP) → URL kanonik berbasis ?tab=
+# API tidak punya aturan wildcard: rute /api/* selalu ditangani Functions.
+/profil      /?tab=profil    301
+/sejarah     /?tab=sejarah   301
+/uks         /?tab=uks       301
+/edukasi     /?tab=edukasi   301
+/edukasi-p3k /?tab=edukasi   301
+/galeri      /?tab=galeri    301
+/kontak      /?tab=kontak    301
+/beranda     /?tab=beranda   301

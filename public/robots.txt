@@ -4,6 +4,3 @@ Disallow: /?tab=admin
 Disallow: /api/
 
 Sitemap: https://pmr.likesyou.org/sitemap.xml
-
-# Additional SEO hints
-# Crawl-delay: 5 (for politeness)

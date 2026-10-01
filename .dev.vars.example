@@ -1,1 +1,8 @@
-DATABASE_URL=postgresql://user:password@ep-example.ap-southeast-1.aws.neon.tech/pmr?sslmode=require
+TELEGRAPH_URL=https://telegraph-cloud.example.workers.dev
+TELEGRAPH_API_KEY=tg_live_replace_me
+TELEGRAPH_PROJECT_ID=prj_replace_me
+TELEGRAPH_BUCKET=pmr-assets
+ADMIN_PIN=2026
+
+# Optional: cache TTL (seconds) for the public /api/content read-through cache.
+PMR_CONTENT_CACHE_TTL=60

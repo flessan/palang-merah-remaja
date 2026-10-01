@@ -1,91 +1,106 @@
-import { neon } from "@neondatabase/serverless";
-import { demoContent } from "../_lib/fallback.js";
-import { error, json } from "../_lib/response.js";
-import { getDemoStore, handleAdminRequest } from "../_lib/admin-handler.js";
+// PMR Wira BFF (backend-for-frontend) on Cloudflare Pages Functions.
+//
+//   Browser → /api/* → this adapter → Telegraph Cloud → JSON / public object URL
+//
+// Public surface:
+//   GET  /api/health
+//   GET  /api/content
+//   GET  /api/gallery
+//   GET  /api/events
+//   GET  /api/media/<key>          (credential-free proxy for private objects)
+// Admin surface: see functions/_lib/admin.js
+//
+// Secrets (TELEGRAPH_API_KEY, ADMIN_PIN, …) only ever exist inside this
+// server-side context. They are never serialised into a response and never
+// reach the Vite bundle.
 
-function getRoute(request) {
-  const pathname = new URL(request.url).pathname.replace(/^\/api\/?/, "");
-  return pathname.split("/").filter(Boolean)[0] || "content";
-}
+import { handleAdmin } from "../_lib/admin.js";
+import { loadCollection, loadContent } from "../_lib/content.js";
+import { apiSegments, error, json, preflight } from "../_lib/response.js";
+import { createTelegraph, telegraphConfig, telegraphConfigIssues } from "../_lib/telegraph.js";
 
-function getSubPath(request) {
-  const pathname = new URL(request.url).pathname.replace(/^\/api\/?/, "");
-  const parts = pathname.split("/").filter(Boolean);
-  return parts.slice(1).join("/") || "data";
-}
+const PUBLIC_CACHE = "public, max-age=30, s-maxage=60, stale-while-revalidate=300";
 
-function parseJSON(value, fallback) {
-  if (value == null) return fallback;
-  if (typeof value === "object") return value;
-  try { return JSON.parse(value); } catch { return fallback; }
-}
-
-function rowToAnnouncement(row) {
-  return { id: row.id, category: row.category, title: row.title, excerpt: row.excerpt, date: row.date_label || new Date(row.published_at).toLocaleDateString("id-ID"), image: row.image_url };
-}
-function rowToGallery(row) {
-  const images = parseJSON(row.images, []);
-  return { id: row.id, title: row.title, date: row.date_label || row.event_date, category: row.category, cover: row.cover_url || images[0], images, description: row.description };
-}
-function rowToEvent(row) {
-  return { id: row.id, title: row.title, date: row.date_label || new Date(row.starts_at).toLocaleDateString("id-ID"), time: row.time_label, location: row.location, description: row.description, status: row.status };
+function cacheSeconds(env) {
+  const parsed = Number(env?.PMR_CONTENT_CACHE_TTL);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.min(Math.round(parsed), 3600) : 60;
 }
 
-async function getContent(sql) {
-  const [stats, announcements, events, gallery, org, contact, guides, roster, uks_info] = await Promise.all([
-    sql`SELECT value FROM site_content WHERE key = 'stats' LIMIT 1`,
-    sql`SELECT id, category, title, excerpt, date_label, image_url, published_at FROM announcements WHERE is_published = true ORDER BY published_at DESC LIMIT 6`,
-    sql`SELECT id, title, date_label, time_label, location, description, status, starts_at FROM events WHERE is_published = true ORDER BY starts_at ASC LIMIT 6`,
-    sql`SELECT id, title, date_label, category, cover_url, images, description FROM gallery_albums WHERE is_published = true ORDER BY event_date DESC, id DESC`,
-    sql`SELECT value FROM site_content WHERE key = 'org' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'contact' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'guides' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'roster' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'uks_info' LIMIT 1`,
-  ]);
-  const activeDemo = getDemoStore();
-  return {
-    source: "neon",
-    stats: parseJSON(stats[0]?.value, activeDemo.stats),
-    announcements: announcements.length ? announcements.map(rowToAnnouncement) : activeDemo.announcements,
-    events: events.length ? events.map(rowToEvent) : activeDemo.events,
-    gallery: gallery.length ? gallery.map(rowToGallery) : activeDemo.gallery,
-    org: parseJSON(org[0]?.value, activeDemo.org),
-    contact: parseJSON(contact[0]?.value, activeDemo.contact),
-    guides: parseJSON(guides[0]?.value, activeDemo.guides),
-    roster: parseJSON(roster[0]?.value, activeDemo.roster),
-    uks_info: parseJSON(uks_info[0]?.value, activeDemo.uks_info),
-  };
+function publicCache(env) {
+  const seconds = cacheSeconds(env);
+  return seconds === 0 ? "no-store" : `public, max-age=${seconds}, s-maxage=${seconds * 5}, stale-while-revalidate=300`;
+}
+
+async function handleMedia(request, env, segments) {
+  const telegraph = createTelegraph(env);
+  if (!telegraph.config.configured) return error("Object storage belum dikonfigurasi.", 503, request);
+
+  const key = segments.slice(1).join("/");
+  if (!key || key.includes("..") || key.startsWith("/")) return error("Objek tidak ditemukan.", 404, request);
+
+  try {
+    const upstream = await telegraph.readObject(key);
+    return new Response(upstream.body, {
+      status: 200,
+      headers: {
+        "Content-Type": upstream.headers.get("Content-Type") || "application/octet-stream",
+        "Cache-Control": "public, max-age=86400, s-maxage=604800",
+        "X-Content-Type-Options": "nosniff",
+        ETag: upstream.headers.get("ETag") || "",
+      },
+    });
+  } catch (cause) {
+    if (cause?.status === 404) return error("Objek tidak ditemukan.", 404, request);
+    return error("Gagal memuat objek dari Telegraph Cloud.", 502, request);
+  }
 }
 
 export async function onRequest(context) {
   const { request, env } = context;
-  if (request.method === "OPTIONS") return json({}, 200, request);
-  const route = getRoute(request);
-  const sql = env.DATABASE_URL ? neon(env.DATABASE_URL) : null;
+  if (request.method === "OPTIONS") return preflight(request);
 
-  if (route === "admin") {
-    return handleAdminRequest(context, sql, getSubPath(request));
+  const segments = apiSegments(request);
+  const route = segments[0] || "content";
+
+  if (route === "admin") return handleAdmin(context, segments.slice(1));
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return error("Metode tidak didukung untuk endpoint publik.", 405, request, { allow: "GET, OPTIONS" });
   }
 
-  if (request.method === "GET" && route === "health") {
-    return json({ ok: true, database: Boolean(sql), service: "pmr-wira-api", timestamp: new Date().toISOString() }, 200, request);
+  const config = telegraphConfig(env);
+
+  if (route === "health") {
+    const issues = telegraphConfigIssues(env);
+    return json(
+      {
+        ok: true,
+        service: "pmr-wira-api",
+        backend: "telegraph-cloud",
+        configured: config.configured,
+        project: config.projectId ? "tersambung" : "belum diatur",
+        bucket: config.bucket,
+        issues,
+        timestamp: new Date().toISOString(),
+      },
+      200,
+      request,
+    );
   }
 
-  if (request.method === "GET" && ["content", "gallery", "events"].includes(route)) {
-    const activeDemo = getDemoStore();
-    if (!sql) return json(route === "content" ? activeDemo : activeDemo[route], 200, request);
-    try {
-      const content = await getContent(sql);
-      return json(route === "content" ? content : content[route], 200, request);
-    } catch (cause) {
-      console.error("Neon content read failed", cause);
-      return json(route === "content" ? activeDemo : activeDemo[route], 200, request);
-    }
+  if (route === "media") return handleMedia(request, env, segments);
+
+  if (!["content", "gallery", "events"].includes(route)) {
+    return error("Endpoint tidak ditemukan.", 404, request);
   }
 
-  // Public write endpoints (registrations & messages) were removed per project decision.
-  // The site is now read-only for visitors; contact happens via WhatsApp/social links.
+  if (route === "content") {
+    const { content, degraded } = await loadContent(env);
+    // Fallback content is still a valid 200 response: the site must never break.
+    return json(content, 200, request, { cache: degraded ? "no-store" : publicCache(env) });
+  }
 
-  return error("Endpoint tidak ditemukan.", 404, request);
+  const result = await loadCollection(env, route);
+  if (result.error) return error("Endpoint tidak ditemukan.", result.status || 404, request);
+  return json(result.documents, 200, request, { cache: result.degraded ? "no-store" : publicCache(env) });
 }

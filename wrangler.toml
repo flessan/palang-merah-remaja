@@ -2,5 +2,17 @@ name = "pmr-wira-smkn4"
 compatibility_date = "2026-07-17"
 pages_build_output_dir = "dist"
 
-# Add DATABASE_URL in Cloudflare Pages > Settings > Environment variables.
-# Do not commit the Neon connection string to this file.
+# No D1, no Hyperdrive, no Postgres: Telegraph Cloud is the only persistent
+# backend. Configure these under Pages → Settings → Environment variables
+# (Preview and Production) — never in this file:
+#
+#   TELEGRAPH_URL          Base URL of the Telegraph Cloud deployment
+#   TELEGRAPH_API_KEY      Developer Bearer key (server-side only)
+#   TELEGRAPH_PROJECT_ID   Project id that owns the PMR collections
+#   TELEGRAPH_BUCKET       Object storage bucket for PMR media
+#   ADMIN_PIN              PIN for the PMR admin portal
+#
+# Local development: copy .dev.vars.example to .dev.vars (git-ignored).
+
+[vars]
+TELEGRAPH_BUCKET = "pmr-assets"

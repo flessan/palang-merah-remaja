@@ -1,18 +1,24 @@
 {
   "name": "pmr-wira-smkn4-banjarmasin",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
+  "description": "Situs resmi PMR Wira SMKN 4 Banjarmasin — React + Vite di Cloudflare Pages dengan Telegraph Cloud sebagai satu-satunya backend.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "vite build",
+    "check": "node scripts/check.mjs",
+    "test": "npm run test:unit && npm run test:api && npm run test:smoke",
+    "test:unit": "node tests/content.test.mjs",
+    "test:api": "node tests/api.test.mjs",
     "test:smoke": "npm run build && node tests/smoke.mjs",
+    "migrate:content": "node scripts/migrate-content.mjs",
+    "migrate:assets": "node scripts/migrate-assets.mjs",
+    "validate:telegraph": "node scripts/validate-telegraph.mjs",
     "cf:dev": "npm run build && wrangler pages dev dist"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.2",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

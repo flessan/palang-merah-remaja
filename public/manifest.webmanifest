@@ -1,25 +1,103 @@
 {
   "name": "PMR Wira SMKN 4 Banjarmasin",
   "short_name": "PMR Wira",
-  "description": "Situs resmi PMR Wira — Ekstrakurikuler Palang Merah Remaja SMKN 4 Banjarmasin. Humanis • Peduli • Tanggap. Edukasi P3K, jadwal UKS, sejarah & galeri kegiatan.",
-  "start_url": "/",
+  "description": "Situs resmi PMR Wira — ekstrakurikuler Palang Merah Remaja SMKN 4 Banjarmasin. Humanis • Peduli • Tanggap. Edukasi P3K, layanan UKS, jadwal piket, dan galeri kegiatan.",
+  "start_url": "/?tab=beranda",
+  "id": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#dc2626",
+  "orientation": "portrait-primary",
+  "background_color": "#fff9ed",
+  "theme_color": "#ef4444",
   "lang": "id",
   "scope": "/",
-  "icons": [
-    { "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
-    { "src": "/gudang/logo/pmr-logo.webp", "sizes": "192x192", "type": "image/webp" },
-    { "src": "/gudang/logo/pmr-logo.webp", "sizes": "512x512", "type": "image/webp" }
+  "categories": [
+    "education",
+    "health",
+    "social"
   ],
-  "categories": ["education", "health", "social"],
+  "icons": [
+    {
+      "src": "/gudang/logo/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/gudang/logo/maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/gudang/logo/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/gudang/logo/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
   "shortcuts": [
-    { "name": "Beranda", "short_name": "Beranda", "url": "/?tab=beranda", "icons": [{ "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
-    { "name": "Sejarah & Pendiri", "short_name": "Sejarah", "url": "/?tab=sejarah", "icons": [{ "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
-    { "name": "Kontak Sekretariat", "short_name": "Kontak", "url": "/?tab=kontak", "icons": [{ "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+    {
+      "name": "Beranda",
+      "short_name": "Beranda",
+      "url": "/?tab=beranda",
+      "icons": [
+        {
+          "src": "/gudang/logo/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Edukasi P3K",
+      "short_name": "P3K",
+      "url": "/?tab=edukasi",
+      "icons": [
+        {
+          "src": "/gudang/logo/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Ruang UKS",
+      "short_name": "UKS",
+      "url": "/?tab=uks",
+      "icons": [
+        {
+          "src": "/gudang/logo/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Kontak Sekretariat",
+      "short_name": "Kontak",
+      "url": "/?tab=kontak",
+      "icons": [
+        {
+          "src": "/gudang/logo/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
   ],
   "screenshots": [
-    { "src": "/gudang/gallery/juara.avif", "sizes": "1280x720", "type": "image/avif", "form_factor": "wide", "label": "Galeri kegiatan PMR Wira" }
+    {
+      "src": "/gudang/gallery/latgab/WhatsApp_Image_2026-02-02_at_21.17.48_1_elixib.avif",
+      "sizes": "1280x720",
+      "type": "image/avif",
+      "form_factor": "wide",
+      "label": "Latihan gabungan PMR Wira SMKN 4 Banjarmasin"
+    }
   ]
 }
