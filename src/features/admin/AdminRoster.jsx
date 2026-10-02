@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
-import { EditorSection, RowListEditor } from "./RepeatableList.jsx";
+import { EditorSection } from "./RepeatableList.jsx";
 import { Field } from "../../components/ui/Bits.jsx";
+import { DutyScheduleEditor } from "./DutyScheduleEditor.jsx";
 import { useUnsavedChanges } from "../../lib/hooks.js";
 
-const SHIFT_FIELDS = [
-  { name: "date", label: "Tanggal", placeholder: "Senin, 13 Juli 2026" },
-  { name: "day", label: "Hari", placeholder: "Senin" },
-  { name: "officers", label: "Petugas", type: "list", span: 2 },
-];
-
-export function AdminRoster({ roster, onSave, busy }) {
+/**
+ * Roster editor: two duty boards (UKS + field) built from the member
+ * directory, plus the period labels that appear on the public page.
+ */
+export function AdminRoster({ roster, members = [], onSave, busy }) {
   const [draft, setDraft] = useState(roster);
 
   useEffect(() => setDraft(roster), [roster]);
@@ -20,7 +19,7 @@ export function AdminRoster({ roster, onSave, busy }) {
   return (
     <EditorSection
       title="Jadwal jaga"
-      description="Jadwal penjagaan Ruang UKS dan piket lapangan upacara."
+      description="Susun penjagaan Ruang UKS dan piket lapangan. Petugas dipilih dari direktori anggota, foto ikut tampil."
       dirty={dirty}
       busy={busy}
       onReset={() => setDraft(roster)}
@@ -46,23 +45,23 @@ export function AdminRoster({ roster, onSave, busy }) {
         </div>
       </div>
 
-      <RowListEditor
+      <DutyScheduleEditor
         label="Jadwal penjagaan UKS"
-        hint="Satu petugas per baris pada kolom petugas."
-        rows={draft.uks_schedule}
-        fields={SHIFT_FIELDS}
-        makeEmpty={() => ({ date: "", day: "", officers: [] })}
+        hint="Senin–Jumat saat jam sekolah. Klik “Cari & pilih petugas” untuk memilih dari direktori."
+        shifts={draft.uks_schedule}
+        members={members}
         onChange={(uks_schedule) => setDraft({ ...draft, uks_schedule })}
         addLabel="Tambah shift UKS"
       />
 
-      <RowListEditor
-        label="Piket lapangan"
-        rows={draft.field_schedule}
-        fields={SHIFT_FIELDS}
-        makeEmpty={() => ({ date: "", day: "", officers: [] })}
+      <DutyScheduleEditor
+        label="Piket lapangan upacara"
+        hint="Biasanya satu kali per minggu, seluruh petugas bertugas bersama."
+        shifts={draft.field_schedule}
+        members={members}
         onChange={(field_schedule) => setDraft({ ...draft, field_schedule })}
         addLabel="Tambah piket lapangan"
+        emptyText="Belum ada jadwal piket lapangan. Gunakan “Susun sebulan” untuk membuatnya otomatis."
       />
     </EditorSection>
   );

@@ -1,0 +1,428 @@
+/* ==========================================================================
+   Paper & collage kit — PMR Wira
+   --------------------------------------------------------------------------
+   The whole site is built as a wall of cut paper, tape, index cards, kraft
+   envelopes and sticky notes. Every texture is a flat SVG data tile (dots,
+   fibres, ruled lines, halftone) — never a CSS gradient, so the "no gradient"
+   rule of the design system still holds.
+   ========================================================================== */
+
+:root {
+  /* ---- extra paper palette ---- */
+  --kraft: #dfbd8c;
+  --kraft-deep: #c69c62;
+  --cardboard: #c8a877;
+  --manila: #f2dfb6;
+  --postit: #ffe98a;
+  --chalk: #f4f1ea;
+  --newsprint: #f6f1e4;
+  --stamp-red: #d0453f;
+
+  /* ---- flat textures (SVG tiles, zero gradients) ---- */
+  --tex-grain:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='%23151515' fill-opacity='0.055'%3E%3Ccircle cx='12' cy='18' r='0.9'/%3E%3Ccircle cx='48' cy='6' r='0.7'/%3E%3Ccircle cx='86' cy='22' r='1'/%3E%3Ccircle cx='124' cy='12' r='0.6'/%3E%3Ccircle cx='30' cy='52' r='0.8'/%3E%3Ccircle cx='70' cy='46' r='0.6'/%3E%3Ccircle cx='108' cy='58' r='0.9'/%3E%3Ccircle cx='16' cy='86' r='0.7'/%3E%3Ccircle cx='56' cy='92' r='1'/%3E%3Ccircle cx='96' cy='88' r='0.6'/%3E%3Ccircle cx='132' cy='80' r='0.8'/%3E%3Ccircle cx='34' cy='120' r='0.9'/%3E%3Ccircle cx='76' cy='128' r='0.7'/%3E%3Ccircle cx='116' cy='118' r='0.6'/%3E%3C/g%3E%3C/svg%3E");
+
+  --tex-fibre:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg stroke='%23151515' stroke-opacity='0.07' stroke-width='1' stroke-linecap='round'%3E%3Cpath d='M4 22h26'/%3E%3Cpath d='M40 12h18'/%3E%3Cpath d='M70 30h30'/%3E%3Cpath d='M10 58h34'/%3E%3Cpath d='M58 52h30'/%3E%3Cpath d='M96 64h18'/%3E%3Cpath d='M6 96h22'/%3E%3Cpath d='M38 104h28'/%3E%3Cpath d='M78 98h34'/%3E%3C/g%3E%3C/svg%3E");
+
+  --tex-ruled:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M0 27.5h28' stroke='%2361b8ff' stroke-opacity='0.42' stroke-width='1'/%3E%3C/svg%3E");
+
+  --tex-grid:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg stroke='%23151515' stroke-opacity='0.14' stroke-width='1'%3E%3Cpath d='M24 0v24M0 24h24'/%3E%3C/g%3E%3C/svg%3E");
+
+  --tex-halftone:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cg fill='%23ef4444' fill-opacity='0.22'%3E%3Ccircle cx='2' cy='2' r='1.7'/%3E%3Ccircle cx='10' cy='2' r='1.2'/%3E%3Ccircle cx='6' cy='6' r='1.1'/%3E%3Ccircle cx='14' cy='8' r='1.5'/%3E%3Ccircle cx='2' cy='11' r='1.2'/%3E%3Ccircle cx='10' cy='12' r='1.6'/%3E%3C/g%3E%3C/svg%3E");
+
+  --tex-tape:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cg stroke='%23151515' stroke-opacity='0.12' stroke-width='1'%3E%3Cpath d='M0 5.5h22'/%3E%3Cpath d='M0 16.5h22'/%3E%3C/g%3E%3C/svg%3E");
+
+  /* torn / deckled edge masks (deterministic) */
+  --mask-solid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect width='1' height='1' fill='%23000'/%3E%3C/svg%3E");
+
+  --mask-torn-bottom:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='20' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath d='M0 0h200v9l-9 4-8-5-9 6-10-4-9 5-9-6-10 5-9-3-9 5-10-6-9 4-9-5-10 6-9-4-9 5-10-5-9 4-9-5-10 5-9-4-9 5-10-6-9 4-9-5-10 5-9-4z' fill='%23000'/%3E%3C/svg%3E");
+
+  --shadow-paper: 7px 9px 0 rgb(21 21 21 / 14%);
+  --shadow-tape: 2px 3px 0 rgb(21 21 21 / 18%);
+}
+
+[data-theme="dark"] {
+  --kraft: #6b5637;
+  --kraft-deep: #574429;
+  --cardboard: #5d4a2f;
+  --manila: #4a3f2c;
+  --postit: #b9a63f;
+  --newsprint: #262235;
+  --tex-grain:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='%23fdf8ee' fill-opacity='0.06'%3E%3Ccircle cx='12' cy='18' r='0.9'/%3E%3Ccircle cx='48' cy='6' r='0.7'/%3E%3Ccircle cx='86' cy='22' r='1'/%3E%3Ccircle cx='124' cy='12' r='0.6'/%3E%3Ccircle cx='30' cy='52' r='0.8'/%3E%3Ccircle cx='70' cy='46' r='0.6'/%3E%3Ccircle cx='108' cy='58' r='0.9'/%3E%3Ccircle cx='16' cy='86' r='0.7'/%3E%3Ccircle cx='56' cy='92' r='1'/%3E%3Ccircle cx='96' cy='88' r='0.6'/%3E%3Ccircle cx='132' cy='80' r='0.8'/%3E%3Ccircle cx='34' cy='120' r='0.9'/%3E%3Ccircle cx='76' cy='128' r='0.7'/%3E%3Ccircle cx='116' cy='118' r='0.6'/%3E%3C/g%3E%3C/svg%3E");
+  --tex-fibre:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg stroke='%23fdf8ee' stroke-opacity='0.09' stroke-width='1' stroke-linecap='round'%3E%3Cpath d='M4 22h26'/%3E%3Cpath d='M40 12h18'/%3E%3Cpath d='M70 30h30'/%3E%3Cpath d='M10 58h34'/%3E%3Cpath d='M58 52h30'/%3E%3Cpath d='M96 64h18'/%3E%3Cpath d='M6 96h22'/%3E%3Cpath d='M38 104h28'/%3E%3Cpath d='M78 98h34'/%3E%3C/g%3E%3C/svg%3E");
+  --tex-grid:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg stroke='%23fdf8ee' stroke-opacity='0.13' stroke-width='1'%3E%3Cpath d='M24 0v24M0 24h24'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* --------------------------------------------------------------------------
+   Surfaces
+   -------------------------------------------------------------------------- */
+
+.paper {
+  position: relative;
+  background-color: var(--surface);
+  background-image: var(--tex-grain), var(--tex-fibre);
+  background-size: 140px 140px, 120px 120px;
+}
+
+.paper--newsprint { background-color: var(--newsprint); }
+.paper--white { background-color: var(--white); }
+.paper--cream { background-color: var(--paper-2); }
+.paper--kraft {
+  background-color: var(--kraft);
+  background-image: var(--tex-fibre);
+  background-size: 120px 120px;
+}
+.paper--cardboard {
+  background-color: var(--cardboard);
+  background-image: var(--tex-fibre);
+  background-size: 120px 120px;
+}
+.paper--manila { background-color: var(--manila); }
+.paper--postit {
+  background-color: var(--postit);
+  background-image: none;
+}
+.paper--ruled {
+  background-image: var(--tex-ruled), var(--tex-grain);
+  background-size: 28px 28px, 140px 140px;
+}
+.paper--grid {
+  background-image: var(--tex-grid), var(--tex-grain);
+  background-size: 24px 24px, 140px 140px;
+}
+.paper--halftone {
+  background-image: var(--tex-halftone), var(--tex-grain);
+  background-size: 16px 16px, 140px 140px;
+}
+
+/* A sheet that sits slightly off-square, like it was glued by hand. */
+.paper--tilt { transform: rotate(var(--tilt, -0.6deg)); }
+.paper--tilt-alt { transform: rotate(var(--tilt-alt, 0.8deg)); }
+
+/* Stacked-paper edge: a second sheet peeking out from behind. */
+.paper--stack::after {
+  content: "";
+  position: absolute;
+  inset: 6px -6px -8px 6px;
+  border: var(--border-w) solid var(--outline);
+  border-radius: inherit;
+  background: var(--surface-alt);
+  z-index: -1;
+}
+
+/* Torn bottom edge. The second mask layer is a 1×1 solid SVG stretched to the
+   rest of the sheet — masks stay gradient-free like the rest of the system. */
+.paper--torn {
+  -webkit-mask-image: var(--mask-torn-bottom), var(--mask-solid);
+  mask-image: var(--mask-torn-bottom), var(--mask-solid);
+  -webkit-mask-size: 100% 20px, 100% calc(100% - 12px);
+  mask-size: 100% 20px, 100% calc(100% - 12px);
+  -webkit-mask-position: bottom, top;
+  mask-position: bottom, top;
+  -webkit-mask-repeat: no-repeat, no-repeat;
+  mask-repeat: no-repeat, no-repeat;
+  padding-bottom: calc(var(--space-5) + 8px);
+}
+
+/* Deckled left edge for list rows and notes. */
+.paper--deckle-left {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='160' viewBox='0 0 10 160' preserveAspectRatio='none'%3E%3Cpath d='M10 0v160H6l2-8-3-7 3-9-2-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9H10z' fill='%23000'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='160' viewBox='0 0 10 160' preserveAspectRatio='none'%3E%3Cpath d='M10 0v160H6l2-8-3-7 3-9-2-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9-3-8 3-9H10z' fill='%23000'/%3E%3C/svg%3E");
+  -webkit-mask-size: 10px 100%;
+  mask-size: 10px 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* --------------------------------------------------------------------------
+   Tape, pins, clips, stamps
+   -------------------------------------------------------------------------- */
+
+.tape {
+  position: absolute;
+  width: 116px;
+  height: 34px;
+  background-color: rgb(255 216 77 / 78%);
+  background-image: var(--tex-tape);
+  background-size: 22px 22px;
+  border-left: 2px dashed rgb(21 21 21 / 22%);
+  border-right: 2px dashed rgb(21 21 21 / 22%);
+  box-shadow: var(--shadow-tape);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.tape--top { top: -17px; left: 50%; transform: translateX(-50%) rotate(-2deg); }
+.tape--left { top: 14px; left: -42px; transform: rotate(-90deg); }
+.tape--right { bottom: 16px; right: -42px; transform: rotate(-90deg); }
+.tape--corner-tl { top: -14px; left: -30px; transform: rotate(-45deg); width: 96px; }
+.tape--corner-tr { top: -14px; right: -30px; transform: rotate(45deg); width: 96px; }
+.tape--wide { width: 172px; }
+.tape--mint { background-color: rgb(131 223 181 / 80%); }
+.tape--pink { background-color: rgb(255 153 153 / 82%); }
+.tape--blue { background-color: rgb(97 184 255 / 78%); }
+.tape--paper { background-color: rgb(255 249 237 / 86%); }
+
+/* Washi strip used as a chip/label background. */
+.washi {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background-color: rgb(255 216 77 / 70%);
+  background-image: var(--tex-tape);
+  background-size: 22px 22px;
+  border-left: 2px dashed rgb(21 21 21 / 20%);
+  border-right: 2px dashed rgb(21 21 21 / 20%);
+  font-weight: 700;
+  font-size: 0.78rem;
+  box-shadow: var(--shadow-tape);
+  transform: rotate(-1deg);
+}
+
+.washi--mint { background-color: rgb(131 223 181 / 78%); }
+.washi--blue { background-color: rgb(97 184 255 / 76%); }
+.washi--pink { background-color: rgb(255 153 153 / 80%); }
+.washi--paper { background-color: rgb(255 249 237 / 90%); }
+
+/* Push-pin / paper clip markers. */
+.pin-dot {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 1px 2px 0 rgb(21 21 21 / 30%);
+  z-index: 3;
+}
+
+.paperclip {
+  position: absolute;
+  top: -12px;
+  right: 22px;
+  width: 16px;
+  height: 44px;
+  border: 3px solid #8d8d8d;
+  border-radius: 10px;
+  border-bottom-color: transparent;
+  z-index: 3;
+}
+
+/* Rubber stamp: rotated, outlined, uppercase. */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 3px solid var(--stamp-red);
+  border-radius: 8px;
+  color: var(--stamp-red);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+  background-color: rgb(255 249 237 / 55%);
+  mix-blend-mode: multiply;
+}
+
+[data-theme="dark"] .stamp { mix-blend-mode: normal; border-color: var(--pink); color: var(--pink); }
+
+/* --------------------------------------------------------------------------
+   Collage layouts
+   -------------------------------------------------------------------------- */
+
+.collage {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* Children become loose clippings: each one is allowed a small tilt. */
+.collage > * {
+  transform: rotate(var(--tilt, 0deg));
+}
+
+.collage-item {
+  position: relative;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform var(--t-base) var(--ease-pop), box-shadow var(--t-base) var(--ease-pop);
+}
+
+.collage-item:hover {
+  transform: rotate(0deg) translate(-2px, -3px);
+  z-index: 4;
+}
+
+/* "Board" wrapper: cork/kraft work surface behind pinned clippings. */
+.board {
+  position: relative;
+  border: var(--border-w) solid var(--outline);
+  border-radius: var(--radius-lg);
+  background-color: var(--kraft);
+  background-image: var(--tex-fibre), var(--tex-halftone);
+  background-size: 120px 120px, 16px 16px;
+  box-shadow: var(--shadow);
+  padding: var(--space-5);
+}
+
+/* Index card: ruled sheet with a red margin line. */
+.index-card {
+  position: relative;
+  background-color: var(--newsprint);
+  background-image: var(--tex-ruled), var(--tex-grain);
+  background-size: 28px 28px, 140px 140px;
+  background-position: 0 30px, 0 0;
+  border: var(--border-w) solid var(--outline);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4) var(--space-4) var(--space-4) calc(var(--space-4) + 14px);
+}
+
+.index-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 30px;
+  border-left: 2px solid rgb(239 68 68 / 55%);
+  pointer-events: none;
+}
+
+/* Sticky note. */
+.note-sheet {
+  position: relative;
+  background-color: var(--postit);
+  border: 2px solid rgb(21 21 21 / 18%);
+  border-radius: 4px 14px 6px 16px;
+  box-shadow: 4px 6px 0 rgb(21 21 21 / 12%);
+  padding: var(--space-4);
+  transform: rotate(var(--tilt, -1.2deg));
+}
+
+/* Polaroid: photo with a fat bottom caption area. */
+.polaroid {
+  position: relative;
+  background: var(--white);
+  border: 2px solid rgb(21 21 21 / 22%);
+  border-radius: 6px;
+  box-shadow: 5px 7px 0 rgb(21 21 21 / 14%);
+  padding: 10px 10px 0;
+  transform: rotate(var(--tilt, -1.4deg));
+}
+
+.polaroid__media {
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--surface-alt);
+  border: 2px solid rgb(21 21 21 / 12%);
+}
+
+.polaroid__media img { width: 100%; height: 100%; object-fit: cover; }
+
+.polaroid__caption {
+  padding: 10px 4px 14px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.86rem;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--ink);
+}
+
+[data-theme="dark"] .polaroid { background: #efe7d8; }
+[data-theme="dark"] .polaroid__caption { color: #151515; }
+
+/* Clipboard: table/editor sheet with a metal clip. */
+.clipboard {
+  position: relative;
+  border: var(--border-w) solid var(--outline);
+  border-radius: var(--radius-md);
+  background-color: var(--newsprint);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
+  box-shadow: var(--shadow);
+  padding: var(--space-5);
+}
+
+.clipboard::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 132px;
+  height: 26px;
+  border: var(--border-w) solid var(--outline);
+  border-radius: 8px;
+  background-color: var(--cardboard);
+  background-image: var(--tex-fibre);
+  background-size: 120px 120px;
+  box-shadow: var(--shadow-sm);
+}
+
+.clipboard__hole {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--outline);
+}
+
+/* Manila folder tab used by admin navigation and section headers. */
+.folder-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px 12px;
+  border: var(--border-w) solid var(--outline);
+  border-bottom: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background-color: var(--manila);
+  background-image: var(--tex-fibre);
+  background-size: 120px 120px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: 3px -3px 0 rgb(21 21 21 / 12%);
+}
+
+/* --------------------------------------------------------------------------
+   Photos as clippings
+   -------------------------------------------------------------------------- */
+
+.photo-clip {
+  position: relative;
+  border: 6px solid var(--white);
+  outline: var(--border-w) solid var(--outline);
+  box-shadow: var(--shadow);
+  background: var(--white);
+  transform: rotate(var(--tilt, 0deg));
+}
+
+.photo-clip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+[data-theme="dark"] .photo-clip { border-color: #efe7d8; }
+
+@media (prefers-reduced-motion: reduce) {
+  .collage > *,
+  .collage-item,
+  .polaroid,
+  .note-sheet,
+  .paper--tilt,
+  .paper--tilt-alt { transform: none; }
+}

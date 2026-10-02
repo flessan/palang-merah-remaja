@@ -2,14 +2,33 @@
    Admin — same brutalist language, denser and more functional
    ========================================================================== */
 
-.admin-shell { display: grid; gap: var(--space-5); }
+/* The admin panel is the PMR "work desk": kraft surface, taped sheets,
+   manila folder tabs and sticky notes — deliberately not a SaaS dashboard. */
+
+.admin-shell {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.admin-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--tex-halftone);
+  background-size: 16px 16px;
+  opacity: 0.18;
+  pointer-events: none;
+}
 
 .admin-gate {
+  position: relative;
   max-width: 560px;
-  margin: var(--space-7) auto;
+  margin: calc(var(--space-7) + 10px) auto;
   display: grid;
   gap: var(--space-4);
   text-align: left;
+  transform: rotate(-0.5deg);
 }
 
 .admin-gate__art {
@@ -24,17 +43,23 @@
 }
 
 .admin-bar {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   justify-content: space-between;
   border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
+  border-radius: 10px 22px 12px 24px;
+  background-color: var(--manila);
+  background-image: var(--tex-fibre), var(--tex-grain);
+  background-size: 120px 120px, 140px 140px;
   box-shadow: var(--shadow-sm);
   padding: var(--space-4);
+  transform: rotate(-0.35deg);
 }
+
+[data-theme="dark"] .admin-bar { background-color: var(--surface); }
 
 .admin-bar__meta { display: grid; gap: 2px; }
 .admin-bar__meta strong { font-family: var(--font-display); font-size: 1.1rem; }
@@ -49,15 +74,33 @@
 
 .admin-subnav {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   position: sticky;
   top: calc(var(--header-h) + 12px);
   border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
+  border-radius: var(--radius-md);
+  /* Drawer of manila folders: the panel the tabs stick out of. */
+  background-color: var(--kraft);
+  background-image: var(--tex-fibre);
+  background-size: 120px 120px;
   box-shadow: var(--shadow-sm);
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-4);
 }
+
+.admin-subnav::after {
+  content: "ARSIP PMR";
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-align: center;
+  color: rgb(21 21 21 / 55%);
+  padding-top: 6px;
+  border-top: 2px dashed rgb(21 21 21 / 26%);
+  margin-top: 4px;
+}
+
+[data-theme="dark"] .admin-subnav { background-color: var(--surface); }
+[data-theme="dark"] .admin-subnav::after { color: rgb(253 248 238 / 55%); border-top-color: rgb(253 248 238 / 25%); }
 
 .subnav-tab {
   display: flex;
@@ -66,28 +109,82 @@
   padding: 10px 14px;
   min-height: 46px;
   border: 2px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   font-weight: 600;
   font-size: 0.92rem;
   text-align: left;
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
 }
 
-.subnav-tab:hover { background: var(--surface-alt); border-color: var(--outline); }
-.subnav-tab.active { background: var(--yellow); border-color: var(--outline); font-weight: 800; }
+.subnav-tab:hover { background-color: var(--surface-alt); border-color: var(--outline); transform: translateX(2px); }
+.subnav-tab.active {
+  background-color: var(--yellow);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
+  border-color: var(--outline);
+  font-weight: 800;
+  box-shadow: var(--shadow-sm);
+  transform: translateX(4px) rotate(-0.6deg);
+}
+
+/* Small-screen admin navigation: a real <select> is friendlier than a
+   horizontal scroller, so the sidebar collapses into a "section picker". */
+.admin-section-picker {
+  display: none;
+  gap: 6px;
+}
+
+.admin-section-picker label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.admin-section-picker select { min-height: 52px; font-weight: 700; font-family: var(--font-display); }
+
+@media (max-width: 900px) {
+  .admin-layout { grid-template-columns: 1fr; }
+  .admin-subnav { display: none; }
+  .admin-section-picker { display: grid; }
+}
 
 .admin-panel { display: grid; gap: var(--space-5); min-width: 0; }
 
 .admin-section {
+  position: relative;
   border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-5);
+  border-radius: 10px 24px 12px 26px;
+  background-color: var(--newsprint);
+  background-image: var(--tex-grain), var(--tex-fibre);
+  background-size: 140px 140px, 120px 120px;
+  box-shadow: var(--shadow);
+  padding: calc(var(--space-5) + 6px) var(--space-5) var(--space-5);
   display: grid;
   gap: var(--space-4);
   min-width: 0;
 }
+
+/* Strip of tape across the top of every admin sheet. */
+.admin-section::before {
+  content: "";
+  position: absolute;
+  top: -15px;
+  left: 38px;
+  width: 128px;
+  height: 30px;
+  background-color: rgb(255 216 77 / 74%);
+  background-image: var(--tex-tape);
+  background-size: 22px 22px;
+  border-left: 2px dashed rgb(21 21 21 / 18%);
+  border-right: 2px dashed rgb(21 21 21 / 18%);
+  box-shadow: var(--shadow-tape);
+  transform: rotate(-1.6deg);
+  pointer-events: none;
+}
+
+[data-theme="dark"] .admin-section { background-color: var(--surface); }
 
 .admin-section__head {
   display: flex;
@@ -99,6 +196,14 @@
 
 .admin-section__head h2,
 .admin-section__head h3 { margin: 0; font-size: var(--step-1); }
+
+.admin-section__head h2 {
+  display: inline;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='12' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M2 8c22-4 44-4 66-2s34 2 50-1' stroke='%2361b8ff' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0 94%;
+  background-size: 100% 9px;
+}
 
 .admin-toolbar {
   display: flex;
@@ -114,12 +219,17 @@
   gap: 10px;
   padding: 8px 14px;
   border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--surface-alt);
+  border-radius: 10px;
+  background-color: var(--newsprint);
+  background-image: var(--tex-ruled);
+  background-size: 28px 28px;
   min-height: 46px;
   flex: 1 1 240px;
   max-width: 380px;
+  box-shadow: var(--shadow-sm);
 }
+
+[data-theme="dark"] .admin-search { background-color: var(--surface-alt); background-image: var(--tex-grain); background-size: 140px 140px; }
 
 .admin-search input { border: 0; background: none; flex: 1; min-width: 0; min-height: 40px; }
 .admin-search input:focus { outline: none; }
@@ -127,31 +237,55 @@
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-4); }
 
 .kpi {
-  border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-md);
-  background: var(--surface-alt);
-  box-shadow: var(--shadow-sm);
+  position: relative;
+  border: 2px solid rgb(21 21 21 / 18%);
+  border-radius: 6px 18px 8px 20px;
+  background-color: var(--postit);
+  box-shadow: 4px 6px 0 rgb(21 21 21 / 13%);
   padding: var(--space-4);
   display: grid;
   gap: 4px;
+  transform: rotate(var(--tilt, -1deg));
+}
+
+.kpi:nth-child(2n) { --tilt: 1.1deg; }
+.kpi:nth-child(3n) { --tilt: -1.4deg; }
+
+.kpi::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  translate: -50% 0;
+  width: 58px;
+  height: 18px;
+  background-color: rgb(255 249 237 / 82%);
+  background-image: var(--tex-tape);
+  background-size: 22px 22px;
+  transform: rotate(-3deg);
 }
 
 .kpi strong { font-family: var(--font-display); font-size: var(--step-2); line-height: 1; }
 .kpi span { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
 
-.kpi--red { background: var(--red); }
-.kpi--yellow { background: var(--yellow); }
-.kpi--blue { background: var(--blue); }
-.kpi--mint { background: var(--mint); }
+.kpi--red { background-color: var(--red); }
+.kpi--yellow { background-color: var(--yellow); }
+.kpi--blue { background-color: var(--blue); }
+.kpi--mint { background-color: var(--mint); }
 .kpi--red span, .kpi--yellow span, .kpi--blue span, .kpi--mint span { color: var(--ink-soft); }
 
 .table-wrap {
   overflow-x: auto;
   border: var(--border-w) solid var(--outline);
   border-radius: var(--radius-md);
-  background: var(--surface);
+  background-color: var(--newsprint);
+  background-image: var(--tex-ruled), var(--tex-grain);
+  background-size: 28px 28px, 140px 140px;
+  box-shadow: var(--shadow-sm);
   -webkit-overflow-scrolling: touch;
 }
+
+[data-theme="dark"] .table-wrap { background-color: var(--surface); background-image: var(--tex-grain); background-size: 140px 140px; }
 
 .data-table { width: 100%; border-collapse: collapse; min-width: 620px; }
 
@@ -161,13 +295,18 @@
 .data-table td {
   padding: 12px 14px;
   text-align: left;
-  border-bottom: 2px solid var(--outline);
+  border-bottom: 2px dashed rgb(21 21 21 / 35%);
   vertical-align: middle;
   font-size: 0.9rem;
 }
 
+[data-theme="dark"] .data-table th,
+[data-theme="dark"] .data-table td { border-bottom-color: rgb(253 248 238 / 28%); }
+
 .data-table thead th {
-  background: var(--surface-alt);
+  background-color: var(--manila);
+  background-image: var(--tex-fibre);
+  background-size: 120px 120px;
   font-family: var(--font-display);
   font-size: 0.82rem;
   text-transform: uppercase;
@@ -176,7 +315,8 @@
   top: 0;
 }
 
-.data-table tbody tr:hover { background: var(--surface-alt); }
+.data-table tbody tr:hover { background-color: rgb(255 216 77 / 26%); }
+[data-theme="dark"] .data-table thead th { background-color: var(--surface-alt); background-image: none; }
 
 .table-thumb {
   width: 62px;
@@ -215,18 +355,24 @@
 }
 
 .asset-card {
-  border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  border: 6px solid var(--white);
+  outline: var(--border-w) solid var(--outline);
+  border-radius: 2px;
+  background: var(--white);
+  transform: rotate(var(--tilt, -0.9deg));
+  box-shadow: 4px 6px 0 rgb(21 21 21 / 14%);
   overflow: hidden;
   display: grid;
   grid-template-rows: auto auto;
 }
 
+.asset-card:nth-child(2n) { --tilt: 1deg; }
+.asset-card:nth-child(3n) { --tilt: -1.3deg; }
+[data-theme="dark"] .asset-card { border-color: #efe7d8; }
+
 .asset-card__media {
   aspect-ratio: 4 / 3;
-  border-bottom: var(--border-w) solid var(--outline);
+  border-bottom: 2px solid var(--outline);
   background: var(--surface-alt);
   overflow: hidden;
   display: grid;
@@ -241,7 +387,9 @@
 .dropzone {
   border: var(--border-w) dashed var(--outline);
   border-radius: var(--radius-lg);
-  background: var(--surface-alt);
+  background-color: var(--manila);
+  background-image: var(--tex-fibre), var(--tex-ruled);
+  background-size: 120px 120px, 28px 28px;
   padding: var(--space-5);
   display: grid;
   gap: var(--space-3);
@@ -250,7 +398,7 @@
   transition: background var(--t-fast), transform var(--t-fast);
 }
 
-.dropzone.is-over { background: var(--yellow); transform: translate(-2px, -2px); }
+.dropzone.is-over { background-color: var(--yellow); transform: translate(-2px, -2px) rotate(-0.6deg); }
 
 .progress-track {
   height: 14px;
@@ -260,7 +408,7 @@
   overflow: hidden;
 }
 
-.progress-fill { height: 100%; background: var(--mint); transition: width var(--t-base) linear; }
+.progress-fill { height: 100%; background-color: var(--mint); background-image: var(--tex-halftone); background-size: 16px 16px; transition: width var(--t-base) linear; }
 
 .inline-note {
   display: flex;
@@ -325,4 +473,285 @@
   .admin-section { padding: var(--space-4); border-radius: var(--radius-md); }
   .modal-foot { justify-content: stretch; }
   .modal-foot .btn { flex: 1 1 auto; }
+}
+
+/* ==========================================================================
+   Searchable picker (combobox) — used for classes, roles, divisions, days,
+   and for every member lookup in the duty schedule.
+   ========================================================================== */
+
+.picker { position: relative; display: grid; gap: 6px; }
+
+.picker__control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 6px 10px 6px 14px;
+  border: var(--border-w) solid var(--outline);
+  border-radius: 10px;
+  background-color: var(--newsprint);
+  background-image: var(--tex-ruled), var(--tex-grain);
+  background-size: 28px 28px, 140px 140px;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="dark"] .picker__control { background-color: var(--surface-alt); background-image: var(--tex-grain); background-size: 140px 140px; }
+
+.picker__control input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font-weight: 600;
+  min-height: 36px;
+}
+
+.picker__control input:focus { outline: none; }
+.picker__control input::placeholder { color: var(--text-muted); font-weight: 500; }
+
+.picker__icon { color: var(--text-muted); flex: 0 0 auto; }
+
+.picker__clear {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--outline);
+  border-radius: 50%;
+  background: var(--surface);
+  flex: 0 0 auto;
+}
+
+.picker__toggle {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--outline);
+  border-radius: 8px;
+  background: var(--surface);
+  flex: 0 0 auto;
+}
+
+.picker__toggle[aria-expanded="true"] { background: var(--yellow); }
+
+.picker__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-height: 288px;
+  overflow-y: auto;
+  border: var(--border-w) solid var(--outline);
+  border-radius: 10px;
+  background-color: var(--white);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+}
+
+.picker__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.picker__option:hover,
+.picker__option.is-active { background-color: var(--paper-2); border-color: var(--outline); }
+.picker__option[aria-selected="true"] { background-color: var(--mint); }
+
+.picker__option small { display: block; font-weight: 500; color: var(--text-muted); font-size: 0.74rem; }
+
+.picker__empty { padding: 12px; font-size: 0.84rem; color: var(--text-muted); }
+
+.picker__hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+/* Member chips inside editors (divisions, duty shifts). */
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 12px 3px 3px;
+  border: 2px solid var(--outline);
+  border-radius: var(--radius-pill);
+  background-color: var(--white);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink);
+  box-shadow: 2px 2px 0 rgb(21 21 21 / 16%);
+}
+
+.member-chip__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--outline);
+  overflow: hidden;
+  background-color: var(--blue);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  flex: 0 0 auto;
+}
+
+.member-chip__avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.member-chip__remove {
+  border: 0;
+  background: none;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+  padding: 2px;
+}
+
+.member-chip__small { font-weight: 500; color: var(--text-muted); font-size: 0.72rem; }
+
+/* Officer picker rows (search the member directory). */
+.officer-picker-list {
+  display: grid;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.officer-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 2px solid var(--outline);
+  border-radius: 10px;
+  background-color: var(--surface);
+  text-align: left;
+}
+
+.officer-row.is-picked { background-color: var(--mint); }
+.officer-row__photo {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 2px solid var(--outline);
+  overflow: hidden;
+  background-color: var(--paper-2);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.officer-row__photo img { width: 100%; height: 100%; object-fit: cover; }
+.officer-row__name { font-weight: 700; }
+.officer-row__meta { font-size: 0.76rem; color: var(--text-muted); }
+
+/* Duty shift editor: month builder + shift cards. */
+.shift-tools {
+  display: grid;
+  gap: var(--space-3);
+  border: var(--border-w) dashed var(--outline);
+  border-radius: var(--radius-md);
+  background-color: var(--manila);
+  background-image: var(--tex-fibre);
+  background-size: 120px 120px;
+  padding: var(--space-4);
+}
+
+[data-theme="dark"] .shift-tools { background-color: var(--surface-alt); background-image: none; }
+
+.shift-tools__row {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+}
+
+.weekday-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.admin-member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: var(--space-4);
+}
+
+/* Admin member cards reuse the public "clipping" card, a little denser so
+   more portraits fit on one screen. */
+.admin-member-card { --tilt: -0.9deg; }
+.admin-member-card:nth-child(2n) { --tilt: 1.1deg; }
+.admin-member-card:nth-child(3n) { --tilt: -1.5deg; }
+.admin-member-card .member-card__body { padding: 8px 8px 10px; gap: 4px; }
+.admin-member-card .member-card__name { font-size: 0.92rem; }
+.admin-member-card .member-card__role { font-size: 0.62rem; padding: 2px 8px; }
+
+/* Photo field inside forms: portrait preview + picker buttons. */
+.photo-field {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.photo-field__preview {
+  aspect-ratio: 4 / 5;
+  border: 6px solid var(--white);
+  outline: var(--border-w) solid var(--outline);
+  border-radius: 2px;
+  overflow: hidden;
+  background-color: var(--surface-alt);
+  display: grid;
+  place-items: center;
+  box-shadow: 4px 5px 0 rgb(21 21 21 / 14%);
+}
+
+.photo-field__preview img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+
+.photo-field__placeholder {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 8px;
+}
+
+@media (max-width: 620px) {
+  .photo-field { grid-template-columns: 108px minmax(0, 1fr); }
+}
+
+/* Filter bar above lists (search + select filters + count). */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.filter-bar__count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-left: auto;
 }

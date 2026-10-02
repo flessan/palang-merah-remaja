@@ -5,6 +5,7 @@ import { AdminLogin } from "./AdminLogin.jsx";
 import { AdminOverview } from "./AdminOverview.jsx";
 import { CollectionTable } from "./CollectionTable.jsx";
 import { AdminOrganization } from "./AdminOrganization.jsx";
+import { AdminMembers } from "./AdminMembers.jsx";
 import { AdminRoster } from "./AdminRoster.jsx";
 import { AdminUks } from "./AdminUks.jsx";
 import { AdminSettings } from "./AdminSettings.jsx";
@@ -14,16 +15,17 @@ import { Icon } from "../../components/ui/Icon.jsx";
 import { Sticker } from "../../components/ui/Bits.jsx";
 
 const SUBNAV = [
-  { id: "overview", label: "Ringkasan", icon: "layout-dashboard" },
-  { id: "announcements", label: "Kabar & berita", icon: "newspaper" },
-  { id: "events", label: "Agenda", icon: "calendar" },
-  { id: "gallery", label: "Galeri", icon: "images" },
-  { id: "guides", label: "Edukasi P3K", icon: "shield-plus" },
-  { id: "organization", label: "Organisasi", icon: "users" },
-  { id: "roster", label: "Jadwal jaga", icon: "clipboard-list" },
-  { id: "uks", label: "Ruang UKS", icon: "heart-pulse" },
-  { id: "assets", label: "Aset media", icon: "folder" },
-  { id: "settings", label: "Pengaturan", icon: "settings" },
+  { id: "overview", label: "Ringkasan", icon: "layout-dashboard", group: "Mulai di sini" },
+  { id: "announcements", label: "Kabar & berita", icon: "newspaper", group: "Konten situs" },
+  { id: "events", label: "Agenda", icon: "calendar", group: "Konten situs" },
+  { id: "gallery", label: "Galeri", icon: "images", group: "Konten situs" },
+  { id: "guides", label: "Edukasi P3K", icon: "shield-plus", group: "Konten situs" },
+  { id: "members", label: "Anggota", icon: "user-search", group: "Orang & jadwal" },
+  { id: "organization", label: "Organisasi", icon: "users", group: "Orang & jadwal" },
+  { id: "roster", label: "Jadwal jaga", icon: "clipboard-list", group: "Orang & jadwal" },
+  { id: "uks", label: "Ruang UKS", icon: "heart-pulse", group: "Layanan" },
+  { id: "assets", label: "Aset media", icon: "folder", group: "Media & pengaturan" },
+  { id: "settings", label: "Pengaturan", icon: "settings", group: "Media & pengaturan" },
 ];
 
 export function AdminApp({ showToast, onPublicRefresh, onExit }) {
@@ -90,15 +92,19 @@ export function AdminApp({ showToast, onPublicRefresh, onExit }) {
   }
 
   const { dataset } = admin;
+  const members = admin.collections.members || [];
+  const activeSection = SUBNAV.find((item) => item.id === tab);
 
   return (
     <div className="admin-shell container-wide">
       <div className="admin-bar">
         <div className="admin-bar__meta">
           <Sticker tone="blue" icon="shield-check" flat>Portal admin</Sticker>
-          <strong>Kelola konten PMR Wira</strong>
+          <strong>Meja kerja pengurus</strong>
           <small>
-            {admin.status === "loading" ? "Memuat data…" : `${(admin.collections.announcements || []).length} kabar · ${(admin.collections.gallery || []).length} album · sumber Telegraph Cloud`}
+            {admin.status === "loading"
+              ? "Memuat data…"
+              : `${members.length} anggota · ${(admin.collections.announcements || []).length} kabar · ${(admin.collections.gallery || []).length} album · Telegraph Cloud`}
           </small>
         </div>
         <div className="row-actions">
@@ -126,6 +132,23 @@ export function AdminApp({ showToast, onPublicRefresh, onExit }) {
         </nav>
 
         <div className="admin-panel">
+          {/* Phones get a real select instead of a horizontal tab scroller. */}
+          <div className="admin-section-picker">
+            <label htmlFor="admin-section">
+              Bagian admin
+              {activeSection ? <span className="sr-only"> — sekarang {activeSection.label}</span> : null}
+            </label>
+            <select
+              id="admin-section"
+              className="select"
+              value={tab}
+              onChange={(event) => setTab(event.target.value)}
+            >
+              {SUBNAV.map((item) => (
+                <option key={item.id} value={item.id}>{item.label}</option>
+              ))}
+            </select>
+          </div>
           {admin.status === "error" ? (
             <div className="inline-note inline-note--error" role="alert">
               <Icon name="wifi-off" size={18} />
@@ -159,12 +182,35 @@ export function AdminApp({ showToast, onPublicRefresh, onExit }) {
             />
           ) : null}
 
+          {tab === "members" ? (
+            <AdminMembers
+              members={members}
+              org={dataset?.org}
+              busy={busy}
+              onSave={async (collection, item) => {
+                setBusy(true);
+                const result = await admin.saveItem(collection, item);
+                setBusy(false);
+                if (result.ok) onPublicRefresh?.(admin.dataset);
+                return result;
+              }}
+              onDelete={async (collection, id) => {
+                setBusy(true);
+                const result = await admin.deleteItem(collection, id);
+                setBusy(false);
+                if (result.ok) onPublicRefresh?.(admin.dataset);
+                return result;
+              }}
+              onNotify={(message, type) => showToast?.(message, type)}
+            />
+          ) : null}
+
           {tab === "organization" && dataset ? (
-            <AdminOrganization org={dataset.org} busy={busy} onSave={saveSingleton} />
+            <AdminOrganization org={dataset.org} members={members} busy={busy} onSave={saveSingleton} />
           ) : null}
 
           {tab === "roster" && dataset ? (
-            <AdminRoster roster={dataset.roster} busy={busy} onSave={saveSingleton} />
+            <AdminRoster roster={dataset.roster} members={members} busy={busy} onSave={saveSingleton} />
           ) : null}
 
           {tab === "uks" && dataset ? (

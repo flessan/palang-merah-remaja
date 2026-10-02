@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { Icon } from "../../components/ui/Icon.jsx";
 import { Chip, ChipRow, IconChip } from "../../components/ui/Bits.jsx";
+import { MemberAvatar } from "../../components/member/MemberBits.jsx";
+import { resolveOfficer } from "../../lib/members.js";
+import { officerLabel } from "../../lib/content.js";
 
 function shiftsToText(shifts, label) {
-  const lines = shifts.map((shift) => `• ${shift.date}: ${shift.officers.join(", ")}`);
+  const lines = shifts.map((shift) => `• ${shift.date}: ${(shift.officers || []).map((officer) => officerLabel(officer)).join(", ")}`);
   return `Jadwal ${label} PMR Wira SMKN 4 Banjarmasin\n\n${lines.join("\n")}`;
 }
 
 /** Data-driven duty roster for the UKS room and the flag-field picket. */
-export function RosterPanel({ roster }) {
+export function RosterPanel({ roster, members = [] }) {
   const [view, setView] = useState("uks");
   const [copied, setCopied] = useState(false);
 
@@ -56,16 +59,30 @@ export function RosterPanel({ roster }) {
 
       <div className="roster-grid">
         {shifts.map((shift) => (
-          <article className={`roster-shift ${view === "field" ? "roster-shift--field" : ""}`} key={`${view}-${shift.date}`}>
-            <div className="roster-shift__head">
-              <span>{shift.date}</span>
-              {shift.day ? <span className="tag">{shift.day}</span> : null}
+          <article className="shift-card" key={`${view}-${shift.date}`}>
+            <div className="shift-card__head">
+              <div>
+                <span className="shift-card__day">{shift.day || shift.date}</span>
+                {shift.day ? <p className="shift-card__date" style={{ margin: 0 }}>{shift.date}</p> : null}
+              </div>
+              {shift.day ? <span className="tag">{view === "uks" ? "UKS" : "Lapangan"}</span> : null}
             </div>
-            <ul>
-              {shift.officers.map((officer) => (
-                <li key={officer}>{officer}</li>
-              ))}
-            </ul>
+            <div className="officer-list">
+              {(shift.officers || []).map((officer, index) => {
+                const person = resolveOfficer(officer, members);
+                return (
+                  <span className="officer-chip" key={`${person.name}-${index}`}>
+                    <span className="officer-chip__avatar">
+                      <MemberAvatar member={person} size={26} />
+                    </span>
+                    <span>
+                      {person.name}
+                      {person.class_name ? <span className="member-chip__small"> · {person.class_name}</span> : null}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
           </article>
         ))}
       </div>

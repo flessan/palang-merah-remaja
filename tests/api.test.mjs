@@ -28,6 +28,7 @@ function installMock({ failMode = null, seed = true } = {}) {
     mock.seed("events", fallbackDocuments.events);
     mock.seed("gallery", fallbackDocuments.gallery);
     mock.seed("guides", fallbackDocuments.guides);
+    mock.seed("members", fallbackDocuments.members);
     mock.seed("organization", fallbackDocuments.organization);
     mock.seed("roster", fallbackDocuments.roster);
     mock.seed("uks", fallbackDocuments.uks);
@@ -82,6 +83,8 @@ console.log("\n== 2. Baca publik ==");
   check("galeri terbaca", payload.gallery.length === fallbackDocuments.gallery.length);
   check("panduan P3K terbaca", payload.guides.length === 4);
   check("inventaris UKS terbaca", payload.uks.inventory.length >= 10);
+  check("direktori anggota terbaca", payload.members.length === fallbackDocuments.members.length);
+  check("setiap anggota punya nama", payload.members.every((member) => member.name));
   check("respons publik tanpa kunci/kredensial", !JSON.stringify(payload).includes("tg_live"));
   check("cache publik diatur", (response.headers.get("Cache-Control") || "").includes("max-age"));
 
@@ -149,7 +152,8 @@ console.log("\n== 4. Autentikasi admin (server-side) ==");
   equal("token dirusak ditolak", tamperedResponse.status, 401);
 
   const dataPayload = await (await onRequest(context("https://pmr.test/api/admin/data", { headers: { Authorization: `Bearer ${token}` } }))).json();
-  check("admin menerima koleksi mentah", Object.keys(dataPayload.data.collections).length === 8);
+  equal("admin menerima sembilan koleksi mentah", Object.keys(dataPayload.data.collections).length, 9);
+  check("koleksi anggota terkirim ke admin", Array.isArray(dataPayload.data.collections.members) && dataPayload.data.collections.members.length > 0);
   check("admin payload tanpa kunci Telegraph", !JSON.stringify(dataPayload).includes("tg_live"));
   // PIN from a different configuration must invalidate the token.
   const otherPinEnv = { ...ENV, ADMIN_PIN: "9999" };
@@ -235,6 +239,53 @@ console.log("\n== 5. CRUD kabar, agenda, galeri ==");
   equal("album tanpa foto ditolak → 422", emptyAlbum.status, 422);
 
   await onRequest(context(`https://pmr.test/api/admin/gallery?id=${encodeURIComponent(albumPayload.id)}`, { method: "DELETE", headers: auth }));
+
+  // --- members (directory with portraits) ---
+  const member = await onRequest(context("https://pmr.test/api/admin/members", {
+    method: "POST",
+    headers: auth,
+    body: { name: "Nur Aisyah", role: "Anggota", class_name: "XI-RPL 1", division: "Hubungan Masyarakat", photo: "/gudang/org/humas_1784124684_69633f9d.jpeg", active: true },
+  }));
+  const memberPayload = await member.json();
+  equal("POST anggota → 200", member.status, 200);
+  check("anggota tersimpan di koleksi", mock.records("members").size === fallbackDocuments.members.length + 1);
+
+  const memberPublic = await (await onRequest(context("https://pmr.test/api/content"))).json();
+  check("anggota muncul di konten publik", memberPublic.members.some((item) => item.name === "Nur Aisyah"));
+  check("foto anggota ikut terkirim", memberPublic.members.find((item) => item.name === "Nur Aisyah")?.photo.includes("/gudang/org/"));
+
+  const anonymous = await onRequest(context("https://pmr.test/api/admin/members", { method: "POST", headers: auth, body: { role: "Anggota" } }));
+  equal("anggota tanpa nama → 422", anonymous.status, 422);
+
+  // Roster accepts directory officers (with portrait) and free text.
+  const linkedShift = await onRequest(context("https://pmr.test/api/admin/roster", {
+    method: "POST",
+    headers: auth,
+    body: {
+      period: "Juli 2026",
+      month_label: "Juli 2026",
+      uks_schedule: [{
+        date: "Senin, 13 Juli 2026",
+        day: "Senin",
+        officers: [{ id: memberPayload.id, name: "Nur Aisyah", class_name: "XI-RPL 1", photo: "/gudang/org/humas_1784124684_69633f9d.jpeg" }, "Petugas piket"],
+      }],
+      field_schedule: [],
+    },
+  }));
+  equal("POST roster dengan petugas direktori → 200", linkedShift.status, 200);
+  const storedRoster = [...mock.records("roster").values()][0].data;
+  const storedOfficers = storedRoster.uks_schedule[0].officers;
+  check("petugas direktori tersimpan sebagai objek", storedOfficers[0].name === "Nur Aisyah" && storedOfficers[0].class_name === "XI-RPL 1");
+  check("foto petugas ikut tersimpan", storedOfficers[0].photo.endsWith("humas_1784124684_69633f9d.jpeg"));
+  equal("nama bebas tetap string di dokumen", storedOfficers[1], "Petugas piket");
+
+  const savedRoster = (await (await onRequest(context("https://pmr.test/api/content"))).json()).roster;
+  const officers = savedRoster.uks_schedule[0].officers;
+  check("konten publik menormalkan petugas direktori", officers[0].name === "Nur Aisyah" && officers[0].class_name === "XI-RPL 1");
+  check("konten publik menormalkan nama bebas", officers[1].name === "Petugas piket" && officers[1].id === "");
+
+  await onRequest(context(`https://pmr.test/api/admin/members?id=${encodeURIComponent(memberPayload.id)}`, { method: "DELETE", headers: auth }));
+  check("anggota dapat dihapus", mock.records("members").size === fallbackDocuments.members.length);
 
   // --- guides & singletons ---
   const guide = await onRequest(context("https://pmr.test/api/admin/guides", {
@@ -377,6 +428,7 @@ console.log("\n== 9. Backup / restore / reset ==");
   const backupPayload = await backup.json();
   equal("GET /api/admin/backup → 200", backup.status, 200);
   check("backup memuat konten lengkap", backupPayload.content.gallery.length > 0 && backupPayload.content.guides.length === 4);
+  check("backup memuat direktori anggota", backupPayload.content.members.length > 0);
   check("backup tanpa kredensial", !JSON.stringify(backupPayload).includes("tg_live"));
 
   const restore = await onRequest(context("https://pmr.test/api/admin/restore", {

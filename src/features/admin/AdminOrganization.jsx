@@ -6,7 +6,7 @@ import { useUnsavedChanges } from "../../lib/hooks.js";
 const LEADER_FIELDS = [
   { name: "name", label: "Nama", placeholder: "Nama lengkap" },
   { name: "role", label: "Jabatan", placeholder: "Ketua / Sekretaris 1" },
-  { name: "photo", label: "URL foto", placeholder: "/gudang/org/… atau https://…" },
+  { name: "photo", label: "Foto pengurus", type: "photo", span: 2 },
   { name: "description", label: "Keterangan", type: "textarea", span: 2 },
 ];
 
@@ -14,12 +14,12 @@ const DIVISION_FIELDS = [
   { name: "name", label: "Nama divisi" },
   { name: "icon", label: "Ikon", placeholder: "heart-pulse" },
   { name: "tone", label: "Warna", placeholder: "red / blue / mint / yellow / pink" },
-  { name: "photo", label: "URL foto divisi" },
+  { name: "photo", label: "Foto divisi", type: "photo", span: 2 },
   { name: "description", label: "Keterangan", type: "textarea", span: 2 },
-  { name: "members", label: "Anggota", type: "list", span: 2 },
+  { name: "members", label: "Anggota divisi", type: "members", span: 2, hint: "Cari dari direktori anggota — foto akan muncul di halaman profil." },
 ];
 
-export function AdminOrganization({ org, onSave, busy }) {
+export function AdminOrganization({ org, members = [], onSave, busy }) {
   const [draft, setDraft] = useState(org);
 
   useEffect(() => setDraft(org), [org]);
@@ -58,6 +58,7 @@ export function AdminOrganization({ org, onSave, busy }) {
         label="Penasihat & pembina"
         rows={draft.advisory}
         fields={LEADER_FIELDS}
+        members={members}
         makeEmpty={() => ({ name: "", role: "", description: "", photo: "" })}
         onChange={(advisory) => setDraft({ ...draft, advisory })}
         addLabel="Tambah penasihat"
@@ -65,9 +66,10 @@ export function AdminOrganization({ org, onSave, busy }) {
 
       <RowListEditor
         label="Pengurus inti"
-        hint="Pembina, ketua, wakil, sekretaris, dan bendahara."
+        hint="Pembina, ketua, wakil, sekretaris, dan bendahara. Unggah foto tiap pengurus langsung dari barisnya."
         rows={draft.leaders}
         fields={LEADER_FIELDS}
+        members={members}
         makeEmpty={() => ({ name: "", role: "", description: "", photo: "" })}
         onChange={(leaders) => setDraft({ ...draft, leaders })}
         addLabel="Tambah pengurus"
@@ -75,9 +77,10 @@ export function AdminOrganization({ org, onSave, busy }) {
 
       <RowListEditor
         label="Divisi"
-        hint="Anggota ditulis satu nama per baris."
+        hint="Anggota dipilih dari direktori (menu “Anggota”) supaya foto dan kelasnya ikut terbaca."
         rows={draft.divisions}
         fields={DIVISION_FIELDS}
+        members={members}
         makeEmpty={() => ({ name: "", icon: "heart-handshake", tone: "red", description: "", photo: "", members: [] })}
         onChange={(divisions) => setDraft({ ...draft, divisions })}
         addLabel="Tambah divisi"

@@ -73,9 +73,14 @@ main {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
-  background: var(--surface);
+  /* A strip of kraft paper pinned along the top of the wall. */
+  background-color: var(--manila);
+  background-image: var(--tex-fibre), var(--tex-grain);
+  background-size: 120px 120px, 140px 140px;
   border-bottom: var(--border-w) solid var(--outline);
 }
+
+[data-theme="dark"] .site-header { background-color: var(--surface); }
 
 .header-inner {
   display: flex;
@@ -94,7 +99,10 @@ main {
   padding: 6px 12px 6px 6px;
   border: var(--border-w) solid var(--outline);
   border-radius: var(--radius-pill);
-  background: var(--yellow);
+  background-color: var(--yellow);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
+  transform: rotate(-1.2deg);
   color: var(--ink);
   box-shadow: var(--shadow-sm);
   transition: transform var(--t-fast) var(--ease-pop), box-shadow var(--t-fast) var(--ease-pop);
@@ -151,17 +159,24 @@ main {
   transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast) var(--ease-pop);
 }
 
+.desktop-nav button {
+  /* Navigation reads as small paper tabs glued to the header strip. */
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
+}
+
 .desktop-nav button:hover {
-  background: var(--surface-alt);
+  background-color: var(--surface-alt);
   border-color: var(--outline);
-  transform: translateY(-2px);
+  transform: translateY(-2px) rotate(-1deg);
 }
 
 .desktop-nav button.active {
-  background: var(--red);
+  background-color: var(--red);
   color: var(--ink);
   border-color: var(--outline);
   box-shadow: var(--shadow-sm);
+  transform: rotate(-1.4deg);
 }
 
 .header-actions {
@@ -292,11 +307,28 @@ main {
    -------------------------------------------------------------------------- */
 
 .site-footer {
-  background: var(--ink);
+  /* The bottom of the page is a big cardboard sheet. */
+  position: relative;
+  background-color: #2c2a30;
+  background-image: var(--tex-fibre), var(--tex-grain);
+  background-size: 120px 120px, 140px 140px;
   color: var(--paper);
   border-top: var(--border-w) solid var(--ink);
   margin-top: var(--space-8);
   padding-block: var(--space-7) var(--space-5);
+}
+
+.site-footer::before {
+  content: "";
+  position: absolute;
+  top: -18px;
+  left: 0;
+  right: 0;
+  height: 18px;
+  background-image: var(--tex-halftone);
+  background-size: 16px 16px;
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 [data-theme="dark"] .site-footer {
@@ -363,6 +395,17 @@ main {
 /* --------------------------------------------------------------------------
    Section scaffolding
    -------------------------------------------------------------------------- */
+
+.section-head__copy h2,
+.section-head__copy h1 {
+  /* Hand-drawn marker underline under every section title. */
+  display: inline;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='12' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M2 8c22-4 44-4 66-2s34 2 50-1' stroke='%23ffd84d' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0 92%;
+  background-size: 100% 10px;
+  padding-bottom: 2px;
+}
 
 .section-head {
   display: flex;

@@ -8,7 +8,7 @@ import {
 } from "../../lib/api.js";
 import { mergeContent } from "../../lib/content.js";
 
-const ITEM_KEYS = ["announcements", "events", "gallery", "guides"];
+const ITEM_KEYS = ["announcements", "events", "gallery", "guides", "members"];
 
 /**
  * Admin data store.

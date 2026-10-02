@@ -2,7 +2,23 @@ import { Button } from "../../components/ui/Button.jsx";
 import { Icon } from "../../components/ui/Icon.jsx";
 import { IconChip, SectionHead, Sticker } from "../../components/ui/Bits.jsx";
 import { SmartImage } from "../../components/media/SmartImage.jsx";
+import { MemberCard } from "../../components/member/MemberCard.jsx";
 import { initials } from "../../lib/utils.js";
+import { groupByDivision } from "../../lib/members.js";
+
+const TONE_BY_NAME = {
+  "Unit Kesehatan Siswa": "red",
+  "Hubungan Masyarakat": "blue",
+  "Pengembangan Sumber Daya Manusia": "yellow",
+  "Sosial Masyarakat": "mint",
+  "Pengurus & petugas": "ink",
+};
+
+/** Resolves a division member name against the directory (photo + class). */
+function memberFromName(name, directory) {
+  const key = String(name).trim().toLowerCase();
+  return directory.find((member) => String(member.name).trim().toLowerCase() === key) || { name };
+}
 
 function PersonCard({ person, variant = "leader" }) {
   return (
@@ -25,7 +41,10 @@ function PersonCard({ person, variant = "leader" }) {
   );
 }
 
-function DivisionCard({ division }) {
+function DivisionCard({ division, directory = [] }) {
+  const people = (division.members || []).map((name) => memberFromName(name, directory));
+  const withPhotos = people.filter((person) => person.photo);
+
   return (
     <article className={`division-card division-card--${division.tone || "red"}`}>
       <div className="division-card__head">
@@ -44,11 +63,23 @@ function DivisionCard({ division }) {
           {division.description ? <p>{division.description}</p> : null}
         </div>
       </div>
+      {withPhotos.length ? (
+        <div className="member-mini-wall">
+          {withPhotos.slice(0, 6).map((person) => (
+            <span className="member-mini" key={person.name}>
+              <SmartImage src={person.photo} alt={`Foto ${person.name}`} />
+              <span className="member-mini__name">{person.name}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
       <div className="member-chips">
-        {division.members.map((member) => (
-          <span className="member-chip" key={member}>
+        {people.map((person) => (
+          <span className="member-chip" key={person.name}>
             <Icon name="user-round" size={13} />
-            {member}
+            {person.name}
+            {person.class_name ? <span className="member-chip__small"> · {person.class_name}</span> : null}
           </span>
         ))}
       </div>
@@ -60,6 +91,14 @@ export function ProfilePage({ content, onNavigate }) {
   const { org } = content;
   const mission = org.mission?.length ? org.mission : [];
   const ketua = (org.leaders || []).find((person) => /ketua$/i.test(person.role || ""));
+  // Member directory (photos + classes). Older documents only carry names in
+  // the division lists, which still render — the wall just stays empty.
+  const directory = content.members?.length ? content.members : [];
+  // Everyone in the directory gets a card. People without a division (pembina,
+  // pengurus inti, petugas UKS) are grouped under a neutral heading.
+  const walls = directory.length
+    ? groupByDivision(directory, org, { fallbackLabel: "Pengurus & petugas" })
+    : [];
 
   return (
     <div className="page container">
@@ -134,10 +173,36 @@ export function ProfilePage({ content, onNavigate }) {
         />
         <div className="division-grid">
           {(org.divisions || []).map((division) => (
-            <DivisionCard key={division.name} division={division} />
+            <DivisionCard key={division.name} division={division} directory={directory} />
           ))}
         </div>
       </section>
+
+      {walls.length ? (
+        <section aria-labelledby="member-wall-title">
+          <SectionHead
+            id="member-wall-title"
+            kicker={`${directory.length} nama tercatat`}
+            title="Wajah-wajah PMR Wira"
+            description="Direktori anggota periode ini — foto diunggah oleh sekretariat lewat Panel Admin."
+          />
+          <div style={{ display: "grid", gap: "var(--space-5)" }}>
+            {walls.map((group) => (
+              <div className="division-block" key={group.name}>
+                <div className="division-block__head">
+                  <Sticker tone={TONE_BY_NAME[group.name] || "ink"} flat>{group.name}</Sticker>
+                  <span className="member-chip__small">{group.members.length} anggota</span>
+                </div>
+                <div className="member-grid">
+                  {group.members.map((member) => (
+                    <MemberCard key={member.id || member.name} member={member} tone={TONE_BY_NAME[group.name] || "mint"} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="cta-band" aria-labelledby="join-title">
         <div>

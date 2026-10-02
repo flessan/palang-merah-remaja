@@ -15,7 +15,10 @@
   min-height: 48px;
   border: var(--border-w) solid var(--outline);
   border-radius: var(--radius-pill);
-  background: var(--surface);
+  /* Every button is a paper cut-out: grain texture plus a hard offset shadow. */
+  background-color: var(--surface);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
   color: var(--ink);
   font-family: var(--font-display);
   font-weight: 700;
@@ -38,13 +41,13 @@
   box-shadow: var(--shadow-sm);
 }
 
-.btn-primary { background: var(--red); }
-.btn-secondary { background: var(--yellow); }
-.btn-blue { background: var(--blue); }
-.btn-mint { background: var(--mint); }
-.btn-pink { background: var(--pink); }
-.btn-ghost { background: var(--surface); }
-.btn-ink { background: var(--ink); color: var(--paper); }
+.btn-primary { background-color: var(--red); }
+.btn-secondary { background-color: var(--yellow); }
+.btn-blue { background-color: var(--blue); }
+.btn-mint { background-color: var(--mint); }
+.btn-pink { background-color: var(--pink); }
+.btn-ghost { background-color: var(--surface); }
+.btn-ink { background-color: var(--ink); color: var(--paper); background-image: none; }
 [data-theme="dark"] .btn-ink { background: var(--paper); color: var(--ink); }
 
 .btn-sm { padding: 8px 15px; min-height: 40px; font-size: 0.86rem; box-shadow: var(--shadow-sm); }
@@ -78,23 +81,27 @@
   align-items: center;
   gap: 6px;
   padding: 5px 13px;
-  border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--surface-alt);
+  border: 2px solid var(--outline);
+  border-radius: 4px;
+  /* Labels are strips of washi tape: torn dashes on both ends, no pill. */
+  background-color: rgb(255 249 237 / 92%);
+  background-image: var(--tex-tape);
+  background-size: 22px 22px;
   color: var(--ink);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
+  box-shadow: var(--shadow-tape);
 }
 
-.tag-red { background: var(--red); }
-.tag-yellow { background: var(--yellow); }
-.tag-blue { background: var(--blue); }
-.tag-mint { background: var(--mint); }
-.tag-pink { background: var(--pink); }
-.tag-ink { background: var(--ink); color: var(--paper); }
+.tag-red { background-color: rgb(239 68 68 / 88%); }
+.tag-yellow { background-color: rgb(255 216 77 / 88%); }
+.tag-blue { background-color: rgb(97 184 255 / 88%); }
+.tag-mint { background-color: rgb(131 223 181 / 90%); }
+.tag-pink { background-color: rgb(255 153 153 / 90%); }
+.tag-ink { background-color: var(--ink); color: var(--paper); background-image: none; }
 
 .chip {
   display: inline-flex;
@@ -104,15 +111,17 @@
   min-height: 42px;
   border: var(--border-w) solid var(--outline);
   border-radius: var(--radius-pill);
-  background: var(--surface);
+  background-color: var(--surface);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
   font-weight: 600;
   font-size: 0.86rem;
   box-shadow: var(--shadow-sm);
   transition: transform var(--t-fast) var(--ease-pop), background var(--t-fast);
 }
 
-.chip:hover { transform: translateY(-2px); }
-.chip.is-active { background: var(--blue); box-shadow: var(--shadow); }
+.chip:hover { transform: translateY(-2px) rotate(-0.6deg); }
+.chip.is-active { background-color: var(--blue); box-shadow: var(--shadow); }
 
 .chip-row {
   display: flex;
@@ -161,11 +170,41 @@
    -------------------------------------------------------------------------- */
 
 .card {
-  background: var(--surface);
+  position: relative;
+  background-color: var(--surface);
+  background-image: var(--tex-grain), var(--tex-fibre);
+  background-size: 140px 140px, 120px 120px;
   border: var(--border-w) solid var(--outline);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   padding: var(--space-5);
+}
+
+/* Paper variants for cards / panels. */
+.card--kraft { background-color: var(--kraft); background-image: var(--tex-fibre); }
+.card--note { background-color: var(--postit); background-image: none; border-radius: 6px 18px 8px 20px; }
+.card--ruled { background-color: var(--newsprint); background-image: var(--tex-ruled), var(--tex-grain); background-size: 28px 28px, 140px 140px; }
+.card--tilt { transform: rotate(var(--tilt, -0.7deg)); }
+.card--tilt:hover { transform: rotate(0deg); }
+
+/* A card with a strip of tape holding it to the wall. */
+.card--taped { margin-top: 14px; }
+.card--taped::before {
+  content: "";
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  translate: -50% 0;
+  width: 124px;
+  height: 30px;
+  background-color: rgb(255 216 77 / 76%);
+  background-image: var(--tex-tape);
+  background-size: 22px 22px;
+  border-left: 2px dashed rgb(21 21 21 / 20%);
+  border-right: 2px dashed rgb(21 21 21 / 20%);
+  box-shadow: var(--shadow-tape);
+  transform: rotate(-1.6deg);
+  z-index: 2;
 }
 
 .card-tight { padding: var(--space-4); border-radius: var(--radius-md); }
@@ -176,11 +215,15 @@
 }
 .card-lift:hover { transform: translate(-3px, -3px) rotate(-0.35deg); box-shadow: var(--shadow-xl); }
 
+
 .panel {
+  position: relative;
   border: var(--border-w) solid var(--outline);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   box-shadow: var(--shadow);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
 }
 
 .panel-yellow { background: var(--yellow); color: var(--ink); }
@@ -188,7 +231,7 @@
 .panel-blue { background: var(--blue); color: var(--ink); }
 .panel-mint { background: var(--mint); color: var(--ink); }
 .panel-pink { background: var(--pink); color: var(--ink); }
-.panel-paper { background: var(--surface-alt); color: var(--text); }
+.panel-paper { background-color: var(--surface-alt); color: var(--text); }
 .panel-ink { background: var(--ink); color: var(--paper); }
 [data-theme="dark"] .panel-ink { background: #0f0e13; }
 
@@ -204,19 +247,26 @@
 
 .photo-frame {
   position: relative;
-  border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--surface-alt);
+  /* Photo print: white paper border, dark outline, hard shadow. */
+  border: 7px solid var(--white);
+  outline: var(--border-w) solid var(--outline);
+  border-radius: 4px;
+  overflow: visible;
+  background: var(--white);
   box-shadow: var(--shadow);
   aspect-ratio: 4 / 3;
 }
+
+[data-theme="dark"] .photo-frame { border-color: #efe7d8; }
+
+.photo-frame > img { border-radius: 0; }
 
 .photo-frame img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  overflow: hidden;
 }
 
 .photo-frame--tall { aspect-ratio: 3 / 4; }
@@ -229,16 +279,32 @@
 .photo-frame--tape::before {
   content: "";
   position: absolute;
-  top: -10px;
+  top: -17px;
   left: 50%;
   translate: -50% 0;
-  width: 84px;
-  height: 22px;
-  background: var(--yellow);
-  border: 2px solid var(--outline);
-  border-radius: 6px;
+  width: 118px;
+  height: 32px;
+  background-color: rgb(255 216 77 / 76%);
+  background-image: var(--tex-tape);
+  background-size: 22px 22px;
+  border-left: 2px dashed rgb(21 21 21 / 20%);
+  border-right: 2px dashed rgb(21 21 21 / 20%);
+  box-shadow: var(--shadow-tape);
   z-index: 2;
-  transform: rotate(-2deg);
+  transform: rotate(-2.5deg);
+}
+
+/* Scrapbook caption strip glued under a photo. */
+.photo-frame__caption {
+  position: absolute;
+  left: 10px;
+  bottom: -14px;
+  padding: 5px 12px;
+  background-color: var(--white);
+  border: 2px solid var(--outline);
+  font-size: 0.74rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-tape);
 }
 
 /* --------------------------------------------------------------------------
@@ -285,7 +351,10 @@
 .modal {
   width: min(100%, 720px);
   max-height: min(90vh, 900px);
-  background: var(--surface);
+  background-color: var(--surface);
+  /* Modal = sheet of paper pinned to a dark room; grain instead of gradients. */
+  background-image: var(--tex-grain), var(--tex-fibre);
+  background-size: 140px 140px, 120px 120px;
   border: var(--border-w) solid var(--outline);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
@@ -300,14 +369,37 @@
 .modal--sheet { width: min(100%, 620px); }
 
 .modal-head {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: var(--space-4);
   justify-content: space-between;
   padding: var(--space-5) var(--space-5) var(--space-4);
-  border-bottom: var(--border-w) solid var(--outline);
-  background: var(--surface-alt);
+  border-bottom: var(--border-w) dashed var(--outline);
+  background-color: var(--manila);
+  background-image: var(--tex-fibre);
+  background-size: 120px 120px;
 }
+
+.modal-head::after {
+  content: "";
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  translate: -50% 0;
+  width: 132px;
+  height: 30px;
+  background-color: rgb(255 249 237 / 88%);
+  background-image: var(--tex-tape);
+  background-size: 22px 22px;
+  border-left: 2px dashed rgb(21 21 21 / 18%);
+  border-right: 2px dashed rgb(21 21 21 / 18%);
+  box-shadow: var(--shadow-tape);
+  transform: rotate(-1.4deg);
+  pointer-events: none;
+}
+
+[data-theme="dark"] .modal-head { background-color: var(--surface-alt); }
 
 .modal-head h2,
 .modal-head h3 { margin: 0; }
@@ -327,8 +419,10 @@
   justify-content: flex-end;
   flex-wrap: wrap;
   padding: var(--space-4) var(--space-5);
-  border-top: var(--border-w) solid var(--outline);
-  background: var(--surface-alt);
+  border-top: var(--border-w) dashed var(--outline);
+  background-color: var(--surface-alt);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
 }
 
 .modal-close { flex: 0 0 auto; }
@@ -386,16 +480,19 @@
   max-width: min(92vw, 520px);
   padding: 14px 20px;
   border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--mint);
+  border-radius: 8px 20px 10px 22px;
+  background-color: var(--mint);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
   color: var(--ink);
+  transform: rotate(-0.8deg);
   font-weight: 700;
   box-shadow: var(--shadow-lg);
   animation: toast-in var(--t-base) var(--ease-pop);
 }
 
-.toast-error { background: var(--red); }
-.toast-info { background: var(--blue); }
+.toast-error { background-color: var(--red); }
+.toast-info { background-color: var(--blue); }
 
 @keyframes toast-in {
   from { opacity: 0; transform: translate(-50%, 20px); }
@@ -426,18 +523,29 @@
 
 [data-theme="dark"] .field-error { color: var(--pink); }
 
+/* Inputs look like fields on an index card: faint ruled paper behind text. */
 .input,
 .textarea,
 .select {
   width: 100%;
   padding: 12px 15px;
   min-height: 48px;
-  background: var(--surface);
+  background-color: var(--newsprint);
+  background-image: var(--tex-ruled), var(--tex-grain);
+  background-size: 28px 28px, 140px 140px;
   color: var(--text);
   border: var(--border-w) solid var(--outline);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   box-shadow: inset 0 0 0 0 transparent;
   transition: box-shadow var(--t-fast), transform var(--t-fast);
+}
+
+[data-theme="dark"] .input,
+[data-theme="dark"] .textarea,
+[data-theme="dark"] .select {
+  background-color: var(--surface-alt);
+  background-image: var(--tex-grain);
+  background-size: 140px 140px;
 }
 
 .input:focus-visible,
@@ -503,6 +611,8 @@
   gap: var(--space-3);
   text-align: center;
   padding: var(--space-7) var(--space-5);
+  background-image: var(--tex-grain), var(--tex-fibre);
+  background-size: 140px 140px, 120px 120px;
   border: var(--border-w) dashed var(--outline);
   border-radius: var(--radius-lg);
   background: var(--surface-alt);

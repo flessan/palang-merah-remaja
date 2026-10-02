@@ -11,9 +11,12 @@ export {
   normaliseAnnouncement,
   normaliseEvent,
   normaliseGuide,
+  normaliseMember,
+  normaliseOfficer,
   normaliseOrganization,
   normaliseSettings,
   normaliseUks,
+  officerLabel,
   text,
 } from "../../shared/content.js";
 

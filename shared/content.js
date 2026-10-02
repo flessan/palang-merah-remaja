@@ -7,7 +7,11 @@
 // that shape.
 //
 // Telegraph Cloud collections (documents in project <TELEGRAPH_PROJECT_ID>):
-//   announcements · events · gallery · guides · organization · roster · uks · site_settings
+//   announcements · events · gallery · guides · organization · members · roster · uks · site_settings
+//
+// `members` is one document per person (name, class, division, role, photo…),
+// so the admin panel can add or edit a single member without rewriting a whole
+// directory document.
 
 export const COLLECTIONS = Object.freeze([
   "announcements",
@@ -15,12 +19,13 @@ export const COLLECTIONS = Object.freeze([
   "gallery",
   "guides",
   "organization",
+  "members",
   "roster",
   "uks",
   "site_settings",
 ]);
 
-export const CONTENT_VERSION = 2;
+export const CONTENT_VERSION = 3;
 
 export const CATEGORY_DEFAULT = "Kabar PMR";
 
@@ -178,12 +183,62 @@ export function normaliseOrganization(raw = {}) {
   };
 }
 
+/** One person in the PMR member directory (with an optional portrait). */
+export function normaliseMember(raw = {}, index = 0) {
+  const doc = isPlainObject(raw) ? raw : {};
+  return {
+    id: recordId(doc, `member-${index + 1}`),
+    name: text(doc.name || doc.nama),
+    role: text(doc.role || doc.jabatan, "Anggota"),
+    class_name: text(doc.class_name || doc.class || doc.kelas),
+    division: text(doc.division || doc.divisi),
+    photo: text(doc.photo || doc.foto, ""),
+    phone: text(doc.phone || doc.wa, ""),
+    note: text(doc.note || doc.catatan),
+    active: bool(doc.active ?? doc.aktif, true),
+    published: bool(doc.published ?? doc.is_published, true),
+    sort: number(doc.sort, 0),
+    updated_at: text(doc.updated_at, ""),
+  };
+}
+
+/**
+ * A duty-schedule officer may be a plain name (legacy documents, free text) or
+ * an object that points at a directory member. Both shapes normalise to one
+ * object so the public roster can show portraits when they exist.
+ */
+export function normaliseOfficer(raw = {}) {
+  if (typeof raw === "string") {
+    const label = text(raw);
+    if (!label) return null;
+    const match = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(label);
+    return { id: "", name: text(match ? match[1] : label), class_name: text(match ? match[2] : ""), photo: "" };
+  }
+  const doc = isPlainObject(raw) ? raw : {};
+  const name = text(doc.name || doc.nama);
+  if (!name) return null;
+  return {
+    id: recordId(doc),
+    name,
+    class_name: text(doc.class_name || doc.class || doc.kelas),
+    photo: text(doc.photo || doc.foto, ""),
+    role: text(doc.role || doc.jabatan, ""),
+  };
+}
+
+/** Stable label used in WhatsApp text, tables and summaries. */
+export function officerLabel(officer) {
+  const person = normaliseOfficer(officer);
+  if (!person) return "";
+  return person.class_name ? `${person.name} (${person.class_name})` : person.name;
+}
+
 export function normaliseShift(raw = {}) {
   const doc = isPlainObject(raw) ? raw : {};
   return {
     date: text(doc.date || doc.tanggal),
     day: text(doc.day || doc.hari, ""),
-    officers: list(doc.officers || doc.petugas).map((officer) => text(officer)).filter(Boolean),
+    officers: list(doc.officers || doc.petugas).map(normaliseOfficer).filter(Boolean),
   };
 }
 
@@ -306,6 +361,7 @@ export function buildContent(collections = {}, { fallback = {}, source = "telegr
   const gallery = publishedFirst((pick("gallery") || []).map(normaliseAlbum)).filter((album) => album.title);
   const guides = publishedFirst((pick("guides") || []).map(normaliseGuide)).filter((guide) => guide.title);
 
+  const members = publishedFirst((pick("members") || []).map(normaliseMember)).filter((member) => member.name);
   const orgDocs = (pick("organization") || []).map(normaliseOrganization);
   const rosterDocs = (pick("roster") || []).map(normaliseRoster);
   const uksDocs = (pick("uks") || []).map(normaliseUks);
@@ -330,6 +386,7 @@ export function buildContent(collections = {}, { fallback = {}, source = "telegr
     events: events.length ? events : list(fallback.events),
     gallery: gallery.length ? gallery : list(fallback.gallery),
     guides: guides.length ? guides : list(fallback.guides),
+    members: members.length ? members : list(fallback.members),
     org: orgDocs[0] || fallback.org,
     roster: rosterDocs[0] || fallback.roster,
     uks: uksDocs[0] || fallback.uks,
@@ -354,7 +411,7 @@ export function mergeContent(data, fallback) {
     if (Array.isArray(value) && value.length === 0) merged[key] = fallback[key];
     if (!value) merged[key] = fallback[key];
   };
-  ["stats", "announcements", "events", "gallery", "guides"].forEach(keepIfNotEmpty);
+  ["stats", "announcements", "events", "gallery", "guides", "members"].forEach(keepIfNotEmpty);
   ["org", "roster", "uks", "contact"].forEach((key) => {
     if (!isPlainObject(merged[key]) || !Object.keys(merged[key]).length) merged[key] = fallback[key];
   });

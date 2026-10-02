@@ -431,6 +431,83 @@ export const fallbackDocuments = {
   ],
 };
 
+/* ------------------------------------------------------------------ */
+/* Member directory                                                    */
+/* ------------------------------------------------------------------ */
+//
+// The directory is derived from the real organisation document above: every
+// advisor, leader and division member becomes one entry. Nothing is invented —
+// a person appears here only because the organisation already lists them.
+// Class names are read from the duty roster (e.g. "Nama (XI-RPL 1)").
+
+function slugifyName(name) {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+function classFromOfficers(rosterDocuments) {
+  const found = new Map();
+  for (const roster of rosterDocuments) {
+    for (const shift of [...(roster.uks_schedule || []), ...(roster.field_schedule || [])]) {
+      for (const officer of shift.officers || []) {
+        const match = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(String(officer));
+        if (match && match[2].toUpperCase().startsWith("XI")) {
+          found.set(match[1].trim().toLowerCase(), match[2].trim());
+        }
+      }
+    }
+  }
+  return found;
+}
+
+function buildMemberDirectory() {
+  const org = fallbackDocuments.organization[0];
+  const classes = classFromOfficers(fallbackDocuments.roster);
+  const directory = new Map();
+
+  const add = (person, extra = {}) => {
+    const name = String(person?.name || "").trim();
+    if (!name) return;
+    const key = name.toLowerCase();
+    const previous = directory.get(key);
+    const entry = {
+      id: `fallback-member-${slugifyName(name) || directory.size + 1}`,
+      name,
+      role: person.role || extra.role || "Anggota",
+      class_name: classes.get(key) || extra.class_name || "",
+      division: extra.division || "",
+      photo: person.photo || previous?.photo || extra.photo || "",
+      phone: "",
+      note: person.description || "",
+      active: true,
+      published: true,
+      sort: 0,
+    };
+    // Prefer the richest entry when someone appears in several places.
+    directory.set(key, { ...previous, ...entry, role: person.role || previous?.role || entry.role });
+  };
+
+  (org.advisory || []).forEach((person) => add(person, { role: "Penasihat" }));
+  (org.leaders || []).forEach((person) => add(person));
+  (org.divisions || []).forEach((division) => {
+    (division.members || []).forEach((name) => add({ name }, { division: division.name, role: "Anggota" }));
+  });
+  (fallbackDocuments.roster[0]?.uks_schedule || []).forEach((shift) => {
+    (shift.officers || []).forEach((label) => {
+      const match = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(String(label));
+      add({ name: (match ? match[1] : label).trim() }, { role: "Petugas UKS", class_name: match ? match[2] : "" });
+    });
+  });
+
+  return [...directory.values()].map((member, index) => ({ ...member, sort: 100 - index }));
+}
+
+fallbackDocuments.members = buildMemberDirectory();
+
 export const fallbackContent = buildContent(fallbackDocuments, {
   fallback: {
     stats: fallbackDocuments.site_settings[0].stats,
@@ -438,6 +515,7 @@ export const fallbackContent = buildContent(fallbackDocuments, {
     events: [],
     gallery: [],
     guides: [],
+    members: fallbackDocuments.members,
     org: fallbackDocuments.organization[0],
     roster: fallbackDocuments.roster[0],
     uks: fallbackDocuments.uks[0],

@@ -229,13 +229,49 @@ export function buildOrganization(body = {}) {
   };
 }
 
+export function buildMember(body = {}) {
+  const member = isPlainObject(body) ? body : {};
+  const name = cleanString(member.name || member.nama, 120);
+  if (!name) throw validationError("name", "Nama anggota wajib diisi.");
+  const role = cleanString(member.role || member.jabatan, 80) || "Anggota";
+  return {
+    name,
+    role,
+    class_name: cleanString(member.class_name || member.class || member.kelas, 60),
+    division: cleanString(member.division || member.divisi, 120),
+    photo: safeImage(member.photo || member.foto),
+    phone: cleanString(member.phone || member.wa, 40),
+    note: cleanString(member.note || member.catatan, 400),
+    active: member.active !== false && member.aktif !== false,
+    published: member.published !== false && member.is_published !== false,
+    sort: Number.isFinite(Number(member.sort)) ? Number(member.sort) : 0,
+  };
+}
+
 export function buildRoster(body = {}) {
   const roster = isPlainObject(body) ? body : {};
+  // An officer is either a directory member (`{ id, name, class_name }`) or a
+  // free-text label ("Petugas piket"). Keeping both shapes is what lets the
+  // admin duty picker reuse the member directory without breaking legacy rows.
+  const officer = (entry) => {
+    if (entry && typeof entry === "object") {
+      const name = cleanString(entry.name || entry.nama, 120);
+      if (!name) return null;
+      return {
+        id: cleanString(entry.id, 80),
+        name,
+        class_name: cleanString(entry.class_name || entry.class || entry.kelas, 60),
+        photo: safeImage(entry.photo || entry.foto),
+      };
+    }
+    const label = cleanString(entry, 160);
+    return label ? label : null;
+  };
   const shift = (entry) => ({
     date: cleanString(entry?.date || entry?.tanggal, 120),
     day: cleanString(entry?.day || entry?.hari, 40),
     officers: (Array.isArray(entry?.officers || entry?.petugas) ? entry.officers || entry.petugas : [])
-      .map((officer) => cleanString(officer, 160))
+      .map(officer)
       .filter(Boolean)
       .slice(0, 40),
   });
@@ -350,6 +386,7 @@ export const BUILDERS = Object.freeze({
   events: buildEvent,
   gallery: buildAlbum,
   guides: buildGuide,
+  members: buildMember,
 });
 
 /* ------------------------------------------------------------------ */

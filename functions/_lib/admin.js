@@ -20,7 +20,7 @@ import { BUILDERS, buildSingleton, idempotencyKey, loadContent } from "./content
 import { TelegraphError, createTelegraph } from "./telegraph.js";
 import { clean, cleanList, error, json, readJson } from "./response.js";
 
-const ITEM_COLLECTIONS = Object.keys(BUILDERS); // announcements, events, gallery, guides
+const ITEM_COLLECTIONS = Object.keys(BUILDERS); // announcements, events, gallery, guides, members
 const SINGLETON_COLLECTIONS = ["organization", "roster", "uks", "site_settings"];
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const ALLOWED_UPLOAD_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/svg+xml", "application/pdf"]);
@@ -215,6 +215,7 @@ async function handleRestore(request, env, telegraph) {
     ["events", backup.events],
     ["gallery", backup.gallery],
     ["guides", backup.guides],
+    ["members", backup.members],
   ];
 
   let written = 0;

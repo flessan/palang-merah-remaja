@@ -41,9 +41,14 @@ export function AssetPicker({ open, onClose, onSelect, multiple = false, selecte
     return () => { cancelled = true; };
   }, [open, folder, query]);
 
+  // Reset the selection when the dialog opens (or when the caller swaps the
+  // current value), never on every render — `selected` is often a fresh array
+  // literal, which used to clear a just-picked photo immediately.
+  const selectedKey = Array.isArray(selected) ? selected.join("|") : String(selected || "");
   useEffect(() => {
-    if (open) setPicked(selected);
-  }, [open, selected]);
+    if (open) setPicked(Array.isArray(selected) ? selected : selected ? [selected] : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, selectedKey]);
 
   const upload = async (event) => {
     const file = event.target.files?.[0];

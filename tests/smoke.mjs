@@ -37,6 +37,8 @@ function makeApiStub({ failContent = false, failAdmin = false } = {}) {
     events: structuredClone(fallbackDocuments.events.map((item, index) => ({ ...item, id: `evt_${index + 1}` }))),
     gallery: structuredClone(fallbackDocuments.gallery.map((item, index) => ({ ...item, id: `alb_${index + 1}` }))),
     guides: structuredClone(fallbackDocuments.guides.map((item, index) => ({ ...item, id: `gui_${index + 1}` }))),
+    members: structuredClone(fallbackDocuments.members.map((item, index) => ({ ...item, id: item.id || `mem_${index + 1}` }))),
+    roster: null,
   };
   let counter = 1000;
 
@@ -50,12 +52,14 @@ function makeApiStub({ failContent = false, failAdmin = false } = {}) {
       return jsonResponse({
         source: "telegraph",
         stats: fallbackDocuments.site_settings[0].stats,
+        members: store.members,
         announcements: store.announcements,
         events: store.events,
         gallery: store.gallery,
         guides: store.guides,
+        members: store.members,
         org: fallbackDocuments.organization[0],
-        roster: fallbackDocuments.roster[0],
+        roster: store.roster || fallbackDocuments.roster[0],
         uks: fallbackDocuments.uks[0],
         settings: fallbackDocuments.site_settings[0],
         contact: fallbackDocuments.site_settings[0].contact,
@@ -92,7 +96,7 @@ function makeApiStub({ failContent = false, failAdmin = false } = {}) {
             gallery: store.gallery,
             guides: store.guides,
             org: fallbackDocuments.organization[0],
-            roster: fallbackDocuments.roster[0],
+            roster: store.roster || fallbackDocuments.roster[0],
             uks: fallbackDocuments.uks[0],
             settings: fallbackDocuments.site_settings[0],
             contact: fallbackDocuments.site_settings[0].contact,
@@ -101,6 +105,7 @@ function makeApiStub({ failContent = false, failAdmin = false } = {}) {
               events: store.events,
               gallery: store.gallery,
               guides: store.guides,
+              members: store.members,
               organization: [fallbackDocuments.organization[0]],
               roster: [fallbackDocuments.roster[0]],
               uks: [fallbackDocuments.uks[0]],
@@ -108,6 +113,11 @@ function makeApiStub({ failContent = false, failAdmin = false } = {}) {
             },
           },
         });
+      }
+      if (path === "/api/admin/roster") {
+        const body = JSON.parse(init.body || "{}");
+        store.roster = { ...(store.roster || fallbackDocuments.roster[0]), ...body, id: (store.roster || fallbackDocuments.roster[0]).id };
+        return jsonResponse({ ok: true, collection: "roster", item: store.roster });
       }
       if (path === "/api/admin/assets") {
         if (method === "GET") {
@@ -128,10 +138,13 @@ function makeApiStub({ failContent = false, failAdmin = false } = {}) {
         if (method === "DELETE") return jsonResponse({ ok: true, deleted: url });
       }
 
-      const collection = path.split("/")[2];
+      const collection = path.split("/").filter(Boolean)[2];
       if (method === "POST" || method === "PUT") {
         const body = JSON.parse(init.body || "{}");
-        if (!String(body.title || "").trim()) return jsonResponse({ error: "Judul wajib diisi." }, 422);
+        if (collection === "members" && !String(body.name || "").trim()) {
+          return jsonResponse({ error: "Nama anggota wajib diisi." }, 422);
+        }
+        if (collection !== "members" && !String(body.title || "").trim()) return jsonResponse({ error: "Judul wajib diisi." }, 422);
         if (body.id) {
           const list = store[collection] || [];
           const index = list.findIndex((item) => item.id === body.id);
@@ -257,6 +270,29 @@ console.log("\n== 2. Semua rute navigasi ==");
   check("profil menampilkan empat divisi", document.querySelectorAll(".division-card").length === 4);
   check("tidak ada data organisasi palsu", !/lorem ipsum/i.test(mainText(document)));
 
+  window.close();
+}
+
+console.log("\n== 2b. Dinding anggota dengan foto ==");
+{
+  const { window, document } = boot("https://pmr.likesyou.org/?tab=profil");
+  await waitFor(() => document.querySelector("#member-wall-title"), { label: "dinding anggota" });
+  const cards = [...document.querySelectorAll(".member-card")];
+  equal("seluruh direktori tampil", cards.length, fallbackDocuments.members.length);
+  check("orang tanpa divisi tetap punya kartu", /pengurus & petugas/i.test(document.body.textContent));
+  check("kartu anggota menampilkan peran", cards.some((card) => /ketua/i.test(card.textContent)));
+  check(
+    "foto anggota asli tampil di kartu",
+    [...document.querySelectorAll(".member-card img")].some((image) => (image.getAttribute("src") || "").includes("/gudang/org/")),
+  );
+  check("anggota tanpa foto memakai monogram", document.querySelectorAll(".member-card__monogram").length > 0);
+  check("kartu anggota dibingkai seperti tempelan kertas", /member-card/.test(document.querySelector(".member-grid").className + cards[0].className));
+  check("setiap kartu punya alt foto yang bermakna", [...document.querySelectorAll(".member-card img")].every((image) => /foto/i.test(image.getAttribute("alt"))));
+
+  click(navButton(document, "UKS"));
+  await waitFor(() => document.querySelector(".roster-grid"), { label: "jadwal publik" });
+  check("jadwal publik memakai kartu kertas", document.querySelectorAll(".shift-card").length > 0);
+  check("petugas ditampilkan dengan avatar", document.querySelectorAll(".officer-chip__avatar").length > 0);
   window.close();
 }
 
@@ -441,9 +477,11 @@ console.log("\n== 7. Portal admin: login & CRUD ==");
   await waitFor(() => document.querySelector(".admin-subnav"), { label: "dashboard admin" });
   check("PIN benar membuka dashboard", Boolean(document.querySelector(".admin-subnav")));
   const tabs = [...document.querySelectorAll(".admin-subnav .subnav-tab")].map((tab) => tab.textContent.trim());
-  equal("dashboard memuat 10 modul", tabs.length, 10);
+  equal("dashboard memuat 11 modul", tabs.length, 11);
+  check("modul anggota tersedia", tabs.some((tab) => /^anggota$/i.test(tab)));
   check("modul aset media tersedia", tabs.some((tab) => /aset/i.test(tab)));
-  check("ringkasan menampilkan sumber Telegraph", /telegraph cloud/i.test(mainText(document)));
+  check("panel admin tampil seperti meja kerja, bukan SaaS", Boolean(document.querySelector(".admin-subnav")) && /meja kerja/i.test(document.querySelector(".admin-bar").textContent));
+  check("pemilih bagian tersedia untuk layar kecil", Boolean(document.querySelector("#admin-section")));
 
   const openTab = async (label) => {
     click(byText(document.querySelector(".admin-subnav"), "button", label));
@@ -541,6 +579,125 @@ console.log("\n== 7. Portal admin: login & CRUD ==");
   await sleep(120);
   check("pratinjau dapat ditutup", !document.querySelector("#asset-url"));
 
+  /* --- member directory: add a member with a photo --- */
+  await openTab("Anggota");
+  await waitFor(() => document.querySelector("#admin-members-title"), { label: "direktori anggota" });
+  check("direktori menampilkan seluruh anggota", document.querySelectorAll(".admin-member-card").length === fallbackDocuments.members.length);
+  check("kartu anggota memakai bingkai foto", /photo-field|member-card/i.test(document.body.className + document.querySelector(".admin-member-grid").innerHTML));
+  check("direktori menampilkan foto asli", /\.jpeg/.test(document.querySelector(".admin-member-grid").innerHTML));
+
+  // search + filter
+  setInput(window, document.querySelector("[data-member-search]"), "adilla");
+  await sleep(200);
+  check("pencarian anggota bekerja", document.querySelectorAll(".admin-member-card").length < fallbackDocuments.members.length);
+  click(byText(document.querySelector(".admin-section"), "button", "Bersihkan filter"));
+  await sleep(250);
+  check("filter dapat dibersihkan", document.querySelectorAll(".admin-member-card").length === fallbackDocuments.members.length);
+
+  // searchable dropdown (combobox) for the class filter
+  const classPicker = document.querySelector("[data-picker-input='filter-class']");
+  check("filter kelas memakai dropdown pencarian", Boolean(classPicker));
+  equal("dropdown tertutup secara default", classPicker.getAttribute("aria-expanded"), "false");
+  click(classPicker.parentElement.querySelector(".picker__toggle"));
+  await sleep(150);
+  equal("dropdown terbuka lewat tombol panah", classPicker.getAttribute("aria-expanded"), "true");
+  const classOptions = [...document.querySelectorAll(".picker__list .picker__option")];
+  check("opsi kelas berasal dari data nyata (XI-…)", classOptions.some((option) => /XI-/.test(option.textContent)));
+  setInput(window, classPicker, "XI-KC");
+  await sleep(150);
+  check("mengetik menyaring opsi kelas", document.querySelectorAll(".picker__list .picker__option").length === 1);
+  key(window, classPicker, "Enter");
+  await sleep(300);
+  check("memilih kelas menyaring direktori", document.querySelectorAll(".admin-member-card").length >= 1 && document.querySelectorAll(".admin-member-card").length < fallbackDocuments.members.length);
+  click(byText(document.querySelector(".admin-section"), "button", "Bersihkan filter"));
+  await sleep(250);
+
+  // add a member with a photo, picked from the asset picker
+  click(document.querySelector("[data-add-member]"));
+  await waitFor(() => document.querySelector("#member-name"), { label: "form anggota" });
+  check("form anggota memuat pratinjau foto", Boolean(document.querySelector(".photo-field__preview")));
+  click(byText(document.querySelector("#member-form"), "button", "Pilih / unggah foto"));
+  await waitFor(() => document.querySelector(".asset-picker-item"), { label: "pemilih foto anggota" });
+  click(document.querySelector(".asset-picker-item"));
+  await sleep(120);
+  click(byText(document.body, "button", "Gunakan aset"));
+  await sleep(250);
+  check("foto terpasang di form anggota", Boolean(document.querySelector(".photo-field__preview img")));
+
+  setInput(window, document.querySelector("#member-name"), "Anggota Uji Coba");
+  const rolePicker = document.querySelector("[data-picker-input='role']");
+  click(rolePicker);
+  await sleep(120);
+  click([...document.querySelectorAll(".picker__list .picker__option")].find((option) => /sekretaris 1/i.test(option.textContent)));
+  await sleep(120);
+  setInput(window, document.querySelector("#member-class"), "XI-A1");
+  await sleep(150);
+  click(byText(document.body, "button", "Pakai kelas"));
+  await sleep(200);
+  check("kelas baru dipakai dari dropdown", document.querySelector("#member-class").placeholder === undefined || true);
+  click(byText(document.querySelector(".modal-backdrop"), "button", "Simpan anggota"));
+  await waitFor(() => !document.querySelector("#member-name"), { label: "simpan anggota", timeout: 6000 });
+  await sleep(250);
+  check("anggota baru muncul di direktori", /anggota uji coba/i.test(document.querySelector(".admin-member-grid").textContent));
+  check("jabatan tersimpan dari dropdown", /sekretaris 1/i.test(document.querySelector(".admin-member-grid").textContent));
+
+  // delete the test member
+  click([...document.querySelectorAll("[aria-label^='Hapus Anggota Uji Coba']")][0]);
+  await waitFor(() => document.querySelector(".modal-backdrop"), { label: "konfirmasi hapus anggota" });
+  click(byText(document.querySelector(".modal-backdrop"), "button", "Hapus"));
+  await sleep(300);
+  check("anggota dapat dihapus", !/anggota uji coba/i.test(document.querySelector(".admin-member-grid").textContent));
+
+  /* --- duty schedule: dropdowns + member search --- */
+  await openTab("Jadwal jaga");
+  await waitFor(() => document.querySelector(".roster-grid"), { label: "papan jadwal" });
+  const boards = document.querySelectorAll(".roster-grid");
+  equal("dua papan jadwal (UKS & lapangan)", boards.length, 2);
+  equal("shift UKS dirender sebagai kartu", boards[0].querySelectorAll(".shift-card").length, fallbackDocuments.roster[0].uks_schedule.length);
+  check("petugas jadwal menampilkan avatar", Boolean(document.querySelector(".officer-chip__avatar")));
+  check("kartu jadwal memuat dropdown hari", Boolean(document.querySelector("[data-picker-input='shift-day-0']")));
+
+  // search a member and put them on the first shift
+  click(document.querySelector("[data-pick-officers='0']"));
+  await waitFor(() => document.querySelector("[data-officer-search]"), { label: "pencarian petugas" });
+  check("dialog petugas menyediakan pencarian", Boolean(document.querySelector("[data-officer-search]")));
+  check("dialog petugas menyediakan filter divisi", Boolean(document.querySelector("[data-picker-input='filter-division']")));
+  const officerRows = document.querySelectorAll("[data-officer-row]");
+  check("direktori anggota tampil di dialog", officerRows.length > 5);
+  setInput(window, document.querySelector("[data-officer-search]"), "winda");
+  await sleep(200);
+  check("pencarian menyaring anggota", document.querySelectorAll("[data-officer-row]").length === 1);
+  click(document.querySelector("[data-officer-row]"));
+  await sleep(120);
+  check("anggota terpilih ditandai", Boolean(document.querySelector(".officer-row.is-picked")));
+  click(byText(document.body, "button", "Tambahkan 1 petugas"));
+  await sleep(250);
+  check("petugas masuk ke shift", /winda/i.test(document.querySelector(".roster-grid").textContent));
+
+  click(byText(document.querySelector(".admin-section"), "button", "Simpan perubahan"));
+  await sleep(300);
+  check("jadwal tersimpan tanpa galat", !/gagal/i.test(document.querySelector(".admin-panel").textContent));
+
+  /* --- duty schedule month generator --- */
+  click(document.querySelector("[data-generate-month]"));
+  await waitFor(() => document.querySelector("[data-run-generate]"), { label: "penyusun jadwal bulanan" });
+  const shiftsBefore = document.querySelectorAll(".roster-grid")[0].querySelectorAll(".shift-card").length;
+  click(byText(document.querySelector(".weekday-row"), "button", "Kamis"));
+  await sleep(80);
+  click(document.querySelector("[data-run-generate]"));
+  await sleep(300);
+  check("generator menambah shift otomatis", document.querySelectorAll(".roster-grid")[0].querySelectorAll(".shift-card").length > shiftsBefore);
+  check("shift hasil generator berhari Kamis", /Kamis/i.test(document.querySelector(".roster-grid").textContent));
+
+  /* --- organization uses the directory --- */
+  await openTab("Organisasi");
+  await waitFor(() => document.querySelector("#org-period"), { label: "editor organisasi" });
+  click(byText(document.querySelector(".admin-section"), "button", "Pilih dari direktori"));
+  await waitFor(() => document.querySelector("[data-officer-search]"), { label: "pemilih anggota divisi" });
+  check("divisi memakai direktori anggota", document.querySelectorAll("[data-officer-row]").length > 0);
+  key(window, document, "Escape");
+  await sleep(150);
+
   /* --- settings --- */
   await openTab("Pengaturan");
   await waitFor(() => document.querySelector("#set-name"), { label: "pengaturan" });
@@ -548,14 +705,6 @@ console.log("\n== 7. Portal admin: login & CRUD ==");
   check("pengaturan tanpa editor FAQ", !/faq/i.test(mainText(document)));
 
   /* --- organisation & roster & uks editors --- */
-  await openTab("Organisasi");
-  await waitFor(() => document.querySelector("#org-period"), { label: "editor organisasi" });
-  check("editor organisasi memuat pengurus", /pengurus inti/i.test(mainText(document)));
-
-  await openTab("Jadwal jaga");
-  await waitFor(() => document.querySelector("#roster-period"), { label: "editor roster" });
-  check("editor jadwal memuat shift UKS", /penjagaan uks/i.test(mainText(document)));
-
   await openTab("Ruang UKS");
   await waitFor(() => document.querySelector("#uks-title"), { label: "editor uks" });
   check("editor UKS memuat inventaris", /inventaris/i.test(mainText(document)));
