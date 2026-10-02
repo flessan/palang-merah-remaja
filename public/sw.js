@@ -1,4 +1,4 @@
-const CACHE_NAME = "pmr-wira-shell-v2";
+const CACHE_NAME = "pmr-wira-shell-v3";
 const SHELL = ["/", "/manifest.webmanifest", "/gudang/logo/icon.svg", "/gudang/logo/pmr-logo.webp"];
 
 self.addEventListener("install", (event) => {

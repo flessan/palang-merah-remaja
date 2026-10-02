@@ -1,91 +1,84 @@
-import { neon } from "@neondatabase/serverless";
-import { demoContent } from "../_lib/fallback.js";
 import { error, json } from "../_lib/response.js";
-import { getDemoStore, handleAdminRequest } from "../_lib/admin-handler.js";
+import { getClient, loadSiteData, publicContentFrom } from "../_lib/content-store.js";
+import { handleAdminRequest } from "../_lib/admin-handler.js";
+import { MEDIA_BUCKET } from "../_lib/collections.js";
 
-function getRoute(request) {
+/**
+ * API publik situs PMR Wira.
+ *
+ * Data dibaca dari Telegraph Cloud (document API + object storage).
+ * Bila TELEGRAPH_URL / TELEGRAPH_API_KEY belum diatur, situs otomatis berjalan
+ * dengan data demo agar tetap bisa dipreview — tanpa database kedua.
+ */
+
+function routeParts(request) {
   const pathname = new URL(request.url).pathname.replace(/^\/api\/?/, "");
-  return pathname.split("/").filter(Boolean)[0] || "content";
+  return pathname.split("/").filter(Boolean);
 }
 
-function getSubPath(request) {
-  const pathname = new URL(request.url).pathname.replace(/^\/api\/?/, "");
-  const parts = pathname.split("/").filter(Boolean);
-  return parts.slice(1).join("/") || "data";
-}
-
-function parseJSON(value, fallback) {
-  if (value == null) return fallback;
-  if (typeof value === "object") return value;
-  try { return JSON.parse(value); } catch { return fallback; }
-}
-
-function rowToAnnouncement(row) {
-  return { id: row.id, category: row.category, title: row.title, excerpt: row.excerpt, date: row.date_label || new Date(row.published_at).toLocaleDateString("id-ID"), image: row.image_url };
-}
-function rowToGallery(row) {
-  const images = parseJSON(row.images, []);
-  return { id: row.id, title: row.title, date: row.date_label || row.event_date, category: row.category, cover: row.cover_url || images[0], images, description: row.description };
-}
-function rowToEvent(row) {
-  return { id: row.id, title: row.title, date: row.date_label || new Date(row.starts_at).toLocaleDateString("id-ID"), time: row.time_label, location: row.location, description: row.description, status: row.status };
-}
-
-async function getContent(sql) {
-  const [stats, announcements, events, gallery, org, contact, guides, roster, uks_info] = await Promise.all([
-    sql`SELECT value FROM site_content WHERE key = 'stats' LIMIT 1`,
-    sql`SELECT id, category, title, excerpt, date_label, image_url, published_at FROM announcements WHERE is_published = true ORDER BY published_at DESC LIMIT 6`,
-    sql`SELECT id, title, date_label, time_label, location, description, status, starts_at FROM events WHERE is_published = true ORDER BY starts_at ASC LIMIT 6`,
-    sql`SELECT id, title, date_label, category, cover_url, images, description FROM gallery_albums WHERE is_published = true ORDER BY event_date DESC, id DESC`,
-    sql`SELECT value FROM site_content WHERE key = 'org' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'contact' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'guides' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'roster' LIMIT 1`,
-    sql`SELECT value FROM site_content WHERE key = 'uks_info' LIMIT 1`,
-  ]);
-  const activeDemo = getDemoStore();
-  return {
-    source: "neon",
-    stats: parseJSON(stats[0]?.value, activeDemo.stats),
-    announcements: announcements.length ? announcements.map(rowToAnnouncement) : activeDemo.announcements,
-    events: events.length ? events.map(rowToEvent) : activeDemo.events,
-    gallery: gallery.length ? gallery.map(rowToGallery) : activeDemo.gallery,
-    org: parseJSON(org[0]?.value, activeDemo.org),
-    contact: parseJSON(contact[0]?.value, activeDemo.contact),
-    guides: parseJSON(guides[0]?.value, activeDemo.guides),
-    roster: parseJSON(roster[0]?.value, activeDemo.roster),
-    uks_info: parseJSON(uks_info[0]?.value, activeDemo.uks_info),
-  };
+function routeOf(parts) {
+  return parts[0] || "content";
 }
 
 export async function onRequest(context) {
   const { request, env } = context;
   if (request.method === "OPTIONS") return json({}, 200, request);
-  const route = getRoute(request);
-  const sql = env.DATABASE_URL ? neon(env.DATABASE_URL) : null;
 
-  if (route === "admin") {
-    return handleAdminRequest(context, sql, getSubPath(request));
+  const parts = routeParts(request);
+  const route = routeOf(parts);
+  const subPath = parts.slice(1).join("/") || "data";
+
+  if (route === "admin") return handleAdminRequest(context, subPath);
+
+  if (route === "health") {
+    const client = getClient(env);
+    return json(
+      {
+        ok: true,
+        database: Boolean(client),
+        source: client ? "telegraph" : "demo",
+        service: "pmr-wira-api",
+        backend: "telegraph-cloud",
+        configured: Boolean(client),
+        timestamp: new Date().toISOString(),
+      },
+      200,
+      request,
+    );
   }
 
-  if (request.method === "GET" && route === "health") {
-    return json({ ok: true, database: Boolean(sql), service: "pmr-wira-api", timestamp: new Date().toISOString() }, 200, request);
-  }
+  // Proxy objek Telegraph Cloud agar kunci API tetap di server dan foto bisa
+  // ditampilkan langsung oleh browser (object storage butuh Authorization).
+  if (route === "media") {
+    if (!["GET", "HEAD"].includes(request.method)) return error("Metode tidak didukung.", 405, request);
+    const key = decodeURIComponent(parts.slice(1).join("/"));
+    if (!key || key.includes("..") || key.startsWith("/")) return error("Key objek tidak valid.", 400, request);
 
-  if (request.method === "GET" && ["content", "gallery", "events"].includes(route)) {
-    const activeDemo = getDemoStore();
-    if (!sql) return json(route === "content" ? activeDemo : activeDemo[route], 200, request);
+    const client = getClient(env);
+    if (!client) return error("Penyimpanan objek belum dikonfigurasi.", 503, request);
     try {
-      const content = await getContent(sql);
-      return json(route === "content" ? content : content[route], 200, request);
+      const object = await client.getObject(MEDIA_BUCKET, key, { range: request.headers.get("Range") || undefined });
+      if (!object.ok) return error("Objek tidak ditemukan.", 404, request);
+      const headers = new Headers();
+      for (const header of ["Content-Type", "Content-Length", "ETag", "Last-Modified", "Accept-Ranges", "Content-Range"]) {
+        const value = object.headers.get(header);
+        if (value) headers.set(header, value);
+      }
+      headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      return new Response(request.method === "HEAD" ? null : object.body, { status: object.status, headers });
     } catch (cause) {
-      console.error("Neon content read failed", cause);
-      return json(route === "content" ? activeDemo : activeDemo[route], 200, request);
+      console.error("Telegraph media proxy failed", cause?.code || cause?.message);
+      return error("Gagal mengambil objek dari Telegraph Cloud.", 502, request);
     }
   }
 
-  // Public write endpoints (registrations & messages) were removed per project decision.
-  // The site is now read-only for visitors; contact happens via WhatsApp/social links.
+  if (request.method === "GET" && ["content", "gallery", "events"].includes(route)) {
+    const site = await loadSiteData(env);
+    const content = publicContentFrom(site);
+    return json(route === "content" ? content : content[route], 200, request);
+  }
 
+  // Endpoint tulis publik (registrations & messages) sudah dihapus atas keputusan proyek.
+  // Situs bersifat read-only untuk pengunjung; kontak lewat WhatsApp/Instagram/email.
   return error("Endpoint tidak ditemukan.", 404, request);
 }

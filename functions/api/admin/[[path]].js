@@ -1,5 +1,9 @@
-import { neon } from "@neondatabase/serverless";
 import { handleAdminRequest } from "../../_lib/admin-handler.js";
+
+/**
+ * Jalur khusus Portal Admin.
+ * Data & berkas disimpan di Telegraph Cloud — lihat functions/_lib/telegraph.js.
+ */
 
 function getAdminSubRoute(request) {
   const pathname = new URL(request.url).pathname;
@@ -8,8 +12,5 @@ function getAdminSubRoute(request) {
 }
 
 export async function onRequest(context) {
-  const { request, env } = context;
-  const sql = env.DATABASE_URL ? neon(env.DATABASE_URL) : null;
-  const subRoute = getAdminSubRoute(request);
-  return handleAdminRequest(context, sql, subRoute);
+  return handleAdminRequest(context, getAdminSubRoute(context.request));
 }
