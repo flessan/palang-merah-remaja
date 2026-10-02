@@ -398,9 +398,9 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
               <small>SMKN 4 BANJARMASIN · {data.org?.periode || "2026/2027"}</small>
             </div>
           </div>
-          <div className={`db-status-pill ${data.source === "neon" ? "db-neon" : "db-demo"}`}>
+          <div className={`db-status-pill ${data.source === "telegraph" ? "db-telegraph" : "db-demo"}`}>
             <Database size={14} />
-            <span>{data.source === "neon" ? "Database Neon Terhubung" : "Mode Demo (Penyimpanan Memori)"}</span>
+            <span>{data.source === "telegraph" ? "Telegraph Cloud Terhubung" : "Mode Demo (Penyimpanan Memori)"}</span>
           </div>
         </div>
         <div className="topbar-actions">
@@ -546,7 +546,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           onClose={() => setEditingNews(null)}
           onSave={saveNews}
           showToast={showToast}
-          imgbbApiKey={data?.contact?.imgbb_api_key}
         />
       )}
       {editingEvent && (
@@ -562,7 +561,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           onClose={() => setEditingGallery(null)}
           onSave={saveGallery}
           showToast={showToast}
-          imgbbApiKey={data?.contact?.imgbb_api_key}
         />
       )}
       {editingPerson && (
@@ -575,7 +573,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
             setEditingPerson(null);
           }}
           showToast={showToast}
-          imgbbApiKey={data?.contact?.imgbb_api_key}
         />
       )}
       {editingDivision && (
@@ -588,7 +585,6 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
             setEditingDivision(null);
           }}
           showToast={showToast}
-          imgbbApiKey={data?.contact?.imgbb_api_key}
         />
       )}
       {editingGuide && (
@@ -705,19 +701,19 @@ function OverviewTab({ data, healthStatus, setActiveTab, setEditingNews, setEdit
       <div className="dashboard-grid-2">
         <div className="admin-section-card">
           <div className="card-top">
-            <h4><Database size={17} /> Status Sistem & Database</h4>
-            <span className={`status-badge ${data.source === "neon" ? "badge-green" : "badge-yellow"}`}>
-              {data.source === "neon" ? "PRODUKSI (NEON SQL)" : "MODE DEMO LOKAL"}
+            <h4><Database size={17} /> Status Sistem & Penyimpanan</h4>
+            <span className={`status-badge ${data.source === "telegraph" ? "badge-green" : "badge-yellow"}`}>
+              {data.source === "telegraph" ? "PRODUKSI (TELEGRAPH CLOUD)" : "MODE DEMO LOKAL"}
             </span>
           </div>
           <div className="diag-table">
             <div className="diag-row">
               <span>Sumber Data Aktif:</span>
-              <strong>{data.source === "neon" ? "Neon Serverless Postgres (@neondatabase/serverless)" : "Penyimpanan Memori & Fallback Sesi (Demo Mode)"}</strong>
+              <strong>{data.source === "telegraph" ? "Telegraph Cloud — document API + object storage" : "Penyimpanan Memori & Fallback Sesi (Demo Mode)"}</strong>
             </div>
             <div className="diag-row">
-              <span>Koneksi Database (DATABASE_URL):</span>
-              <strong>{healthStatus?.database || data.source === "neon" ? "🟢 Terhubung & Siap Tulis" : "🟡 Belum Diatur (Pembaruan disimpan di memori browser)"}</strong>
+              <span>Koneksi Telegraph Cloud (TELEGRAPH_API_KEY):</span>
+              <strong>{healthStatus?.database || data.source === "telegraph" ? "🟢 Terhubung & Siap Tulis" : "🟡 Belum Diatur (Pembaruan disimpan di memori browser)"}</strong>
             </div>
             <div className="diag-row">
               <span>Cloudflare Pages Functions API:</span>
@@ -728,11 +724,11 @@ function OverviewTab({ data, healthStatus, setActiveTab, setEditingNews, setEdit
               <strong>{healthStatus?.timestamp ? new Date(healthStatus.timestamp).toLocaleString("id-ID") : new Date().toLocaleString("id-ID")}</strong>
             </div>
           </div>
-          {data.source !== "neon" && (
+          {data.source !== "telegraph" && (
             <div className="info-banner">
               <Info size={18} />
               <p>
-                <strong>Tip Pengembang:</strong> Saat ini aplikasi berjalan di mode demo tanpa variabel rahasia <code>DATABASE_URL</code>. Semua penambahan/pengeditan yang kamu lakukan tetap langsung terlihat dan dapat diuji sepenuhnya dalam sesi ini!
+                <strong>Tip Pengembang:</strong> Aplikasi sedang berjalan di mode demo karena <code>TELEGRAPH_URL</code> / <code>TELEGRAPH_API_KEY</code> belum diatur di environment. Semua perubahan tetap terlihat dan bisa diuji penuh dalam sesi ini.
               </p>
             </div>
           )}
@@ -1631,19 +1627,6 @@ function SettingsTab({ stats, guides, contact, uksInfo, onSaveStats, onSaveGuide
               </label>
             </div>
 
-            {/* ImgBB API Key (stored server-side via Neon) */}
-            <div className="field full">
-              <label>
-                <span>ImgBB API Key (untuk upload foto di form admin)</span>
-                <input
-                  type="password"
-                  value={contactState.imgbb_api_key || ""}
-                  onChange={(e) => setContactState({ ...contactState, imgbb_api_key: e.target.value })}
-                  placeholder="Masukkan API Key ImgBB (disimpan di database)"
-                />
-              </label>
-              <small style={{color: "var(--muted)", fontSize: "11px"}}>Kunci ini disimpan aman di Neon DB. Digunakan untuk preview + upload foto langsung di form.</small>
-            </div>
         </div>
       </div>
 
@@ -1724,40 +1707,30 @@ function SettingsTab({ stats, guides, contact, uksInfo, onSaveStats, onSaveGuide
 // MODAL COMPONENTS
 // ==========================
 
-// Simple reusable photo uploader with preview + ImgBB upload
-// The apiKey is passed from parent (stored in Neon via Admin)
-async function uploadToImgBB(file, apiKey, showToast) {
-  if (!apiKey || apiKey.length < 10) {
-    showToast("API Key ImgBB belum disimpan di Admin Panel.", "error");
+// Pengunggah foto sederhana: preview lokal lalu simpan ke object storage
+// Telegraph Cloud lewat /api/admin/upload (kunci API tetap di server).
+async function uploadPhoto(file, showToast) {
+  if (!file) {
+    showToast("Pilih file gambar terlebih dahulu.", "error");
     return null;
   }
-  const base64 = await new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = () => res(reader.result.split(",")[1]);
-    reader.onerror = rej;
-    reader.readAsDataURL(file);
-  });
-
   const formData = new FormData();
-  formData.append("image", base64);
-
+  formData.append("image", file);
   try {
-    const resp = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
-      method: "POST",
-      body: formData,
-    });
-    const json = await resp.json();
-    if (!resp.ok || !json.success) throw new Error(json.error?.message || "Upload gagal");
+    const pin = sessionStorage.getItem("pmr_admin_pin") || "2026";
+    const resp = await fetch("/api/admin/upload", { method: "POST", headers: { "X-Admin-Pin": pin }, body: formData });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok || !json.ok) throw new Error(json.error || "Unggah gagal");
     const url = json.data?.url || json.data?.display_url;
-    showToast("Foto berhasil diunggah ke ImgBB!");
+    showToast("Foto berhasil diunggah ke Telegraph Cloud!");
     return url;
   } catch (e) {
-    showToast("Gagal upload ke ImgBB: " + e.message, "error");
+    showToast("Gagal mengunggah foto: " + e.message, "error");
     return null;
   }
 }
 
-function PhotoUploadField({ label, value, onChange, apiKey, showToast }) {
+function PhotoUploadField({ label, value, onChange, showToast }) {
   const [preview, setPreview] = useState(value || "");
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -1776,7 +1749,7 @@ function PhotoUploadField({ label, value, onChange, apiKey, showToast }) {
       return;
     }
     setUploading(true);
-    const url = await uploadToImgBB(file, apiKey, showToast);
+    const url = await uploadPhoto(file, showToast);
     if (url) {
       onChange(url);
       setPreview(url);
@@ -1795,14 +1768,14 @@ function PhotoUploadField({ label, value, onChange, apiKey, showToast }) {
           <input type="file" accept="image/*" onChange={handleFileSelect} hidden />
         </label>
         <button type="button" className="button button-primary button-sm" onClick={doUpload} disabled={uploading || !file}>
-          {uploading ? "Mengunggah..." : "Unggah ke ImgBB"}
+          {uploading ? "Mengunggah..." : "Unggah Foto"}
         </button>
       </div>
 
       {preview && (
         <div className="photo-preview">
           <img src={preview} alt="Preview" />
-          <small>Preview foto (klik "Unggah ke ImgBB" untuk upload)</small>
+          <small>Preview foto — klik &quot;Unggah Foto&quot; untuk menyimpan</small>
         </div>
       )}
     </div>
@@ -1823,7 +1796,7 @@ function AssetLibraryPicker({ onSelect }) {
       </button>
       {open && (
         <div className="asset-picker-dropdown">
-          <div className="ap-head"><span>Pilih Foto dari Repository atau ImgBB</span><button type="button" onClick={() => setOpen(false)}><X size={15} /></button></div>
+          <div className="ap-head"><span>Pilih Foto dari Pustaka Aset</span><button type="button" onClick={() => setOpen(false)}><X size={15} /></button></div>
           <div className="ap-grid">
             {combinedAssets.map((item, idx) => (
               <div key={item.path + idx} className="ap-item" onClick={() => { onSelect(item.path); setOpen(false); }}>
@@ -1838,7 +1811,7 @@ function AssetLibraryPicker({ onSelect }) {
   );
 }
 
-function AnnouncementModal({ item, onClose, onSave, showToast, imgbbApiKey }) {
+function AnnouncementModal({ item, onClose, onSave, showToast }) {
   const [form, setForm] = useState(item);
   const update = (k, v) => setForm({ ...form, [k]: v });
 
@@ -1877,7 +1850,6 @@ function AnnouncementModal({ item, onClose, onSave, showToast, imgbbApiKey }) {
                 label="Atau Upload Foto Baru (preview + upload)"
                 value={form.image || form.image_url || ""}
                 onChange={(url) => update("image_url", url)}
-                apiKey={imgbbApiKey}
                 showToast={showToast}
               />
             </div>
@@ -1963,7 +1935,7 @@ function EventModal({ item, onClose, onSave }) {
   );
 }
 
-function GalleryModal({ item, onClose, onSave, showToast, imgbbApiKey }) {
+function GalleryModal({ item, onClose, onSave, showToast }) {
   const [form, setForm] = useState({ ...item, images: item.images || [item.cover || item.cover_url || ""] });
   const update = (k, v) => setForm({ ...form, [k]: v });
 
@@ -2023,7 +1995,6 @@ function GalleryModal({ item, onClose, onSave, showToast, imgbbApiKey }) {
                 label="Upload Foto Cover Baru"
                 value={form.cover || form.cover_url || ""}
                 onChange={(url) => update("cover_url", url)}
-                apiKey={imgbbApiKey}
                 showToast={showToast}
               />
             </div>
@@ -2042,8 +2013,7 @@ function GalleryModal({ item, onClose, onSave, showToast, imgbbApiKey }) {
                   label=""
                   value=""
                   onChange={(url) => addImageRow(url)}
-                  apiKey={imgbbApiKey}
-                  showToast={showToast}
+                    showToast={showToast}
                 />
                 <button type="button" className="button button-ghost button-sm" onClick={() => addImageRow()}>
                   <Plus size={14} /> Tambah Foto
@@ -2060,8 +2030,7 @@ function GalleryModal({ item, onClose, onSave, showToast, imgbbApiKey }) {
                     label=""
                     value={imgUrl}
                     onChange={(url) => updateImageRow(idx, url)}
-                    apiKey={imgbbApiKey}
-                    showToast={showToast}
+                        showToast={showToast}
                   />
                   {form.images.length > 1 && (
                     <button type="button" className="text-red" onClick={() => removeImageRow(idx)}><Trash2 size={15} /></button>
@@ -2086,7 +2055,7 @@ function GalleryModal({ item, onClose, onSave, showToast, imgbbApiKey }) {
   );
 }
 
-function PersonModal({ modalData, org, onClose, onSaveOrg, showToast, imgbbApiKey }) {
+function PersonModal({ modalData, org, onClose, onSaveOrg, showToast }) {
   const { type, item, index } = modalData;
   const [form, setForm] = useState(item);
   const update = (k, v) => setForm({ ...form, [k]: v });
@@ -2143,7 +2112,6 @@ function PersonModal({ modalData, org, onClose, onSaveOrg, showToast, imgbbApiKe
                 label=""
                 value={form.foto || ""}
                 onChange={(url) => update("foto", url)}
-                apiKey={imgbbApiKey}
                 showToast={showToast}
               />
                 </div>
@@ -2164,7 +2132,7 @@ function PersonModal({ modalData, org, onClose, onSaveOrg, showToast, imgbbApiKe
   );
 }
 
-function DivisionModal({ modalData, org, onClose, onSaveOrg, showToast, imgbbApiKey }) {
+function DivisionModal({ modalData, org, onClose, onSaveOrg, showToast }) {
   const { item, index } = modalData;
   const [form, setForm] = useState({ ...item, anggota: item.anggota || [] });
   const [newMember, setNewMember] = useState("");
@@ -2227,7 +2195,6 @@ function DivisionModal({ modalData, org, onClose, onSaveOrg, showToast, imgbbApi
                 label=""
                 value={form.foto || ""}
                 onChange={(url) => update("foto", url)}
-                apiKey={imgbbApiKey}
                 showToast={showToast}
               />
             </div>

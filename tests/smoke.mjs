@@ -303,12 +303,32 @@ console.log("\n== Skenario 4: File statis & konfigurasi ==");
   check("sitemap memuat ?tab=sejarah", sitemap.includes("tab=sejarah"));
   const robot = fs.readFileSync(path.join(ROOT, "public", "robots.txt"), "utf8");
   check("robots melarang /api/", robot.includes("Disallow: /api/"));
-  const schema = fs.readFileSync(path.join(ROOT, "db", "schema.sql"), "utf8");
-  check("schema tanpa CREATE TABLE registrations/contact_messages", !/CREATE TABLE (IF NOT EXISTS )?(registrations|contact_messages)/i.test(schema));
+  check("dokumentasi koleksi Telegraph ada", fs.existsSync(path.join(ROOT, "db", "collections.md")));
+  const sqlArtifacts = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (["node_modules", "dist", ".git", ".wrangler"].includes(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/\.sql$/i.test(entry.name)) sqlArtifacts.push(path.relative(ROOT, full));
+    }
+  };
+  walk(ROOT);
+  check("tidak ada berkas .sql tersisa (bukan proyek SQL)", sqlArtifacts.length === 0);
+  const sourceFiles = ["functions/_lib/admin-handler.js", "functions/_lib/content-store.js", "functions/_lib/telegraph.js", "functions/api/[[path]].js", "package.json", ".env.example", "wrangler.toml"];
+  const banned = [];
+  for (const file of sourceFiles) {
+    const text = fs.readFileSync(path.join(ROOT, file), "utf8");
+    const withoutComments = text.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/<!--[\s\S]*?-->/g, "");
+    if (/@neondatabase|DATABASE_URL|neon\.tech|prisma|drizzle-orm|from\s+["'`]pg["'`]|require\(["'`]pg["'`]\)/i.test(withoutComments)) banned.push(file);
+  }
+  check("tidak ada sisa Neon/SQL/ORM di kode & konfigurasi", banned.length === 0);
+  check("contoh env memakai TELEGRAPH_URL", fs.readFileSync(path.join(ROOT, ".env.example"), "utf8").includes("TELEGRAPH_URL"));
   const swSrc = fs.readFileSync(path.join(ROOT, "public", "sw.js"), "utf8");
   check("service worker cache v2+", /pmr-wira-shell-v([2-9]|\d{2,})/.test(swSrc));
   const apiFile = fs.readFileSync(path.join(ROOT, "functions", "api", "[[path]].js"), "utf8").replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
   check("API publik tanpa route registrations/messages (di luar komentar)", !/["'`](registrations|messages)["'`]/.test(apiFile));
+  check("API publik memakai klien Telegraph tunggal", apiFile.includes("content-store.js") && apiFile.includes("handleAdminRequest"));
 }
 
 /* ===================== Skenario 5: Pages Functions API ===================== */
@@ -344,6 +364,104 @@ console.log("\n== Skenario 5: Pages Functions API ==");
   check("admin data dengan PIN → 200", res.status === 200 && adminData && adminData.ok !== false);
   const keys = Object.keys((adminData && (adminData.data || adminData)) || {});
   check("admin data tanpa registrations/messages/faq", !keys.some((k) => /registration|messages|faq/i.test(k)));
+
+  // Telegraph Cloud: mode demo aktif tanpa env, dan jalur media tidak pernah bocorkan kunci.
+  res = await onRequest(ctx("https://x.test/api/health"));
+  const health = await res.json();
+  check("health menandai backend Telegraph Cloud", health.backend === "telegraph-cloud" && health.database === false);
+  check("health tidak membocorkan TELEGRAPH_API_KEY", !JSON.stringify(health).toLowerCase().includes("tglive") && !("apiKey" in health));
+
+  res = await onRequest(ctx("https://x.test/api/media/uploads/2026/01/foto.jpg"));
+  check("/api/media tanpa konfigurasi → 503", res.status === 503);
+
+  res = await onRequest(ctx("https://x.test/api/media/..%2F..%2Fetc%2Fpasswd"));
+  check("/api/media menolak path traversal", res.status === 400);
+
+  res = await onRequest(ctx("https://x.test/api/admin/upload", { method: "POST", headers: { "X-Admin-Pin": "2026" }, body: "{}" }));
+  check("admin upload tanpa Telegraph → 400 informatif", res.status === 400);
+
+  res = await onRequest(ctx("https://x.test/api/admin/content", { method: "POST", headers: { "X-Admin-Pin": "2026" }, body: JSON.stringify({ key: "palsu", value: 1 }) }));
+  check("admin content menolak key tak dikenal (422)", res.status === 422);
+
+  res = await onRequest(ctx("https://x.test/api/admin/announcements", { method: "POST", headers: { "X-Admin-Pin": "2026" }, body: JSON.stringify({ title: "Uji" }) }));
+  check("admin announcements demo mode menyimpan di memori (200)", res.status === 200 && (await res.json()).persisted === false);
+}
+
+/* ================== Skenario 6: klien Telegraph Cloud ================== */
+console.log("\n== Skenario 6: Klien Telegraph Cloud ==\n");
+{
+  const { createTelegraph, telegraphConfig, normalizeRecord } = await import(
+    pathToFileURL(path.join(ROOT, "functions", "_lib", "telegraph.js")).href
+  );
+
+  check("tanpa env → klien tidak dibuat (mode demo)", createTelegraph({}) === null);
+  check(
+    "konfigurasi dari env terbaca",
+    telegraphConfig({ TELEGRAPH_URL: "https://telestorage.pages.dev/", TELEGRAPH_API_KEY: "tg_live_x", TELEGRAPH_PROJECT: "prj_x" }).configured === true,
+  );
+
+  // Mock fetch: merekam permintaan dan mengembalikan bentuk respons Telegraph.
+  const calls = [];
+  const mockFetch = async (url, init) => {
+    calls.push({ url, method: init.method || "GET", headers: init.headers, body: init.body });
+    if (init.method === "POST") {
+      return new Response(JSON.stringify({ data: { id: "rec_1", version: 1 }, version: 1, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" }), { status: 201 });
+    }
+    if (init.method === "PATCH") {
+      return new Response(JSON.stringify({ data: { id: "rec_1" }, version: 2 }), { status: 200 });
+    }
+    if (init.method === "DELETE") return new Response(null, { status: 204 });
+    return new Response(
+      JSON.stringify({ data: [{ id: "rec_1", version: 3, data: { key: "stats", value: [1] } }], order: "id:asc", limit: 50, has_more: false, next_cursor: null }),
+      { status: 200 },
+    );
+  };
+
+  const client = createTelegraph(
+    { TELEGRAPH_URL: "https://telestorage.pages.dev", TELEGRAPH_API_KEY: "tg_live_rahasia", TELEGRAPH_PROJECT: "prj_x" },
+    { fetchImpl: mockFetch },
+  );
+
+  const list = await client.list("site_content", { filter: { key: "stats" } });
+  check("list() memakai filter exact-match", calls[0].url.includes("/api/db/site_content?") && calls[0].url.includes("key=stats"));
+  check("list() mengirim Bearer API key", calls[0].headers.Authorization === "Bearer tg_live_rahasia");
+  check("list() menormalkan Record → dokumen", list.records[0].data.key === "stats" && list.records[0].version === 3);
+
+  const created = await client.create("announcements", { title: "x" }, { idempotencyKey: "k1" });
+  check("create() memakai POST + Idempotency-Key", calls[1].method === "POST" && calls[1].headers["Idempotency-Key"] === "k1");
+  check("create() mengembalikan record terversi", created.id === "rec_1" && created.version === 1);
+
+  await client.update("announcements", "rec_1", { title: "y" }, { expectedVersion: 4 });
+  const patchBody = JSON.parse(calls[2].body);
+  check("update() mengirim _expected_version", calls[2].method === "PATCH" && patchBody._expected_version === 4);
+  check("update() mengirim dokumen penuh", patchBody.title === "y");
+
+  await client.remove("announcements", "rec_1", { expectedVersion: 5 });
+  check("remove() memakai DELETE + _expected_version", calls[3].method === "DELETE" && JSON.parse(calls[3].body)._expected_version === 5);
+
+  // Konflik versi harus menjadi error dengan kode stabil.
+  const conflictClient = createTelegraph(
+    { TELEGRAPH_URL: "https://telestorage.pages.dev", TELEGRAPH_API_KEY: "tg_live_x" },
+    { fetchImpl: async () => new Response(JSON.stringify({ error: "version_conflict", current_version: 9 }), { status: 409 }) },
+  );
+  let conflict = null;
+  try {
+    await conflictClient.update("events", "rec_9", { title: "z" }, { expectedVersion: 2 });
+  } catch (cause) {
+    conflict = cause;
+  }
+  check("409 version_conflict diangkat sebagai TelegraphError", conflict?.code === "version_conflict" && conflict.status === 409);
+
+  // Dokumen terlalu besar ditolak sebelum menyentuh jaringan.
+  let tooBig = null;
+  try {
+    await client.create("gallery_albums", { blob: "x".repeat(97 * 1024) });
+  } catch (cause) {
+    tooBig = cause;
+  }
+  check("dokumen > 96 KiB ditolak lokal (document_too_large)", tooBig?.code === "document_too_large");
+
+  check("normalizeRecord menerima bentuk Record datar", normalizeRecord({ id: "rec_2", version: 2, title: "a" })?.data.title === "a");
 }
 
 /* ================================ Ringkasan ================================ */

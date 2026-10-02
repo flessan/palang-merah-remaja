@@ -378,7 +378,7 @@ function App() {
           <div className="footer-bottom">
             <small>© {new Date().getFullYear()} PMR Wira SMKN 4 Banjarmasin — Ekstrakurikuler Palang Merah Remaja</small>
             <div className="footer-credits">
-              <span>Built with ❤️ by tim PMR Wira • React + Vite + Neon</span>
+              <span>Dibuat oleh tim PMR Wira • React + Vite + Telegraph Cloud</span>
             </div>
           </div>
         </div>
@@ -1116,7 +1116,7 @@ const HISTORY_TIMELINE = [
     tone: "red",
   },
   {
-    year: "20--",
+    year: "2010",
     icon: "flag",
     title: "PMR Wira SMKN 4 Banjarmasin resmi berdiri",
     text: "Diprakarsai guru pembina dan siswa yang peduli kesehatan sekolah serta kesiapsiagaan bencana, PMR Wira menjadi ekstrakurikuler kemanusiaan resmi sekolah.",
@@ -1142,7 +1142,7 @@ const getHistoryFounders = (org) => [
   {
     icon: "graduation-cap",
     role: "Pendiri & Pembina Pertama",
-    name: "",
+    name: "Winda Hairani, S.Pd.",
     text: "Guru yang memprakarsai berdirinya PMR Wira SMKN 4 Banjarmasin dan terus membimbing generasi relawan hingga hari ini.",
     note: "Penanggung jawab kurikulum & pelatihan P3K sejak awal berdiri.",
   },
@@ -1182,7 +1182,7 @@ function History({ content, goTo }) {
       {/* Hero sejarah */}
       <div className="history-hero">
         <div className="hh-copy">
-          <span className="history-year-pill"><HistoryIcon size={15} /> SEJAK 20--</span>
+          <span className="history-year-pill"><HistoryIcon size={15} /> SEJAK 2010</span>
           <h2>PMR Wira <em>SMKN 4 Banjarmasin</em></h2>
           <p>
             Palang Merah Remaja (PMR) tingkat Wira adalah wadah pembinaan remaja oleh PMI untuk siswa SMA/sederajat.

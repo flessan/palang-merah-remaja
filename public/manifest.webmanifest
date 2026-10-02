@@ -4,22 +4,78 @@
   "description": "Situs resmi PMR Wira — Ekstrakurikuler Palang Merah Remaja SMKN 4 Banjarmasin. Humanis • Peduli • Tanggap. Edukasi P3K, jadwal UKS, sejarah & galeri kegiatan.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#dc2626",
+  "background_color": "#e8dcc2",
+  "theme_color": "#d3273e",
   "lang": "id",
   "scope": "/",
   "icons": [
-    { "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
-    { "src": "/gudang/logo/pmr-logo.webp", "sizes": "192x192", "type": "image/webp" },
-    { "src": "/gudang/logo/pmr-logo.webp", "sizes": "512x512", "type": "image/webp" }
+    {
+      "src": "/gudang/logo/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/gudang/logo/pmr-logo.webp",
+      "sizes": "192x192",
+      "type": "image/webp"
+    },
+    {
+      "src": "/gudang/logo/pmr-logo.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    }
   ],
-  "categories": ["education", "health", "social"],
+  "categories": [
+    "education",
+    "health",
+    "social"
+  ],
   "shortcuts": [
-    { "name": "Beranda", "short_name": "Beranda", "url": "/?tab=beranda", "icons": [{ "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
-    { "name": "Sejarah & Pendiri", "short_name": "Sejarah", "url": "/?tab=sejarah", "icons": [{ "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
-    { "name": "Kontak Sekretariat", "short_name": "Kontak", "url": "/?tab=kontak", "icons": [{ "src": "/gudang/logo/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+    {
+      "name": "Beranda",
+      "short_name": "Beranda",
+      "url": "/?tab=beranda",
+      "icons": [
+        {
+          "src": "/gudang/logo/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Sejarah & Pendiri",
+      "short_name": "Sejarah",
+      "url": "/?tab=sejarah",
+      "icons": [
+        {
+          "src": "/gudang/logo/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Kontak Sekretariat",
+      "short_name": "Kontak",
+      "url": "/?tab=kontak",
+      "icons": [
+        {
+          "src": "/gudang/logo/icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
   ],
   "screenshots": [
-    { "src": "/gudang/gallery/juara.avif", "sizes": "1280x720", "type": "image/avif", "form_factor": "wide", "label": "Galeri kegiatan PMR Wira" }
+    {
+      "src": "/gudang/gallery/juara.avif",
+      "sizes": "1280x720",
+      "type": "image/avif",
+      "form_factor": "wide",
+      "label": "Galeri kegiatan PMR Wira"
+    }
   ]
 }

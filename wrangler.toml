@@ -2,5 +2,11 @@ name = "pmr-wira-smkn4"
 compatibility_date = "2026-07-17"
 pages_build_output_dir = "dist"
 
-# Add DATABASE_URL in Cloudflare Pages > Settings > Environment variables.
-# Do not commit the Neon connection string to this file.
+# Data & object storage memakai Telegraph Cloud.
+# Tambahkan TELEGRAPH_URL, TELEGRAPH_PROJECT, dan TELEGRAPH_API_KEY sebagai
+# secret di Cloudflare Pages > Settings > Environment variables.
+# Jangan pernah menaruh nilai kunci di berkas ini.
+#
+# TELEGRAPH_URL    = "https://telestorage.pages.dev"
+# TELEGRAPH_PROJECT = "prj_Ooc9HEir37tMqV3Q5uWUMw"
+# TELEGRAPH_API_KEY = (secret, hanya di dashboard / .dev.vars)
