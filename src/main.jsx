@@ -1011,10 +1011,14 @@ function UksServicePage({ content, goTo }) {
 
 function Home({ content, goTo, onGuide, motionReduced }) {
   const backdropRef = useRef(null);
+  const draggingRef = useRef(false);
+  const dragRef = useRef({ startX: 0, startScroll: 0 });
+  const holdRef = useRef(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Latar hero: galeri berjalan pelan sebagai dinding foto (dekoratif).
   // Berhenti otomatis saat preferensi gerak dikurangi, tab tidak aktif,
-  // atau hero sedang tidak terlihat di layar.
+  // pengguna sedang menggeser latar, atau hero di luar layar.
   useEffect(() => {
     const track = backdropRef.current;
     if (!track || motionReduced) return undefined;
@@ -1030,7 +1034,7 @@ function Home({ content, goTo, onGuide, motionReduced }) {
     const step = (now) => {
       const delta = Math.min(now - last, 64);
       last = now;
-      if (onScreen && !document.hidden) {
+      if (onScreen && !document.hidden && !draggingRef.current && now > holdRef.current) {
         const setWidth = track.scrollWidth / 3;
         if (setWidth > 0) {
           track.scrollLeft += speed * delta;
@@ -1062,6 +1066,35 @@ function Home({ content, goTo, onGuide, motionReduced }) {
     };
   }, [motionReduced]);
 
+  // Latar bisa digeser sendiri oleh pengguna; gerak otomatisnya berhenti sebentar
+  const holdAutoScroll = () => { holdRef.current = performance.now() + 2600; };
+
+  const handleBackdropDown = (event) => {
+    if (event.pointerType === "touch" || (event.button !== undefined && event.button !== 0)) return; // sentuhan digeser native
+    const el = backdropRef.current;
+    if (!el) return;
+    draggingRef.current = true;
+    setIsDragging(true);
+    dragRef.current = { startX: event.clientX, startScroll: el.scrollLeft };
+    holdAutoScroll();
+    try { el.setPointerCapture?.(event.pointerId); } catch { /* peramban lama: abaikan */ }
+  };
+
+  const handleBackdropMove = (event) => {
+    if (!draggingRef.current) return;
+    const el = backdropRef.current;
+    if (!el) return;
+    el.scrollLeft = dragRef.current.startScroll - (event.clientX - dragRef.current.startX);
+    holdAutoScroll();
+  };
+
+  const handleBackdropUp = () => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    setIsDragging(false);
+    holdAutoScroll();
+  };
+
   const heroImages = [
     '/gudang/gallery/1.jpg',
     '/gudang/gallery/2.jpg',
@@ -1080,7 +1113,19 @@ function Home({ content, goTo, onGuide, motionReduced }) {
   return <>
     <section className="hero-section page-section">
       {/* Galeri berjalan = latar hero (dekoratif, disembunyikan dari pembaca layar) */}
-      <div className="hero-bg" ref={backdropRef} aria-hidden="true">
+      <div
+        className={`hero-bg ${isDragging ? "is-dragging" : ""}`}
+        ref={backdropRef}
+        aria-hidden="true"
+        onPointerDown={handleBackdropDown}
+        onPointerMove={handleBackdropMove}
+        onPointerUp={handleBackdropUp}
+        onPointerCancel={handleBackdropUp}
+        onPointerLeave={handleBackdropUp}
+        onWheel={holdAutoScroll}
+        onTouchStart={holdAutoScroll}
+        onTouchMove={holdAutoScroll}
+      >
         <div className="hero-bg-track">
           {loopedImages.map((img, index) => (
             <figure className="hero-bg-slide" key={`${img}-${index}`}>

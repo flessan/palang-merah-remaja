@@ -9070,67 +9070,89 @@ h2 em {
 
 
 /* =========================================================
-   19. HERO — GALERI SEBAGAI LATAR
-   Slider galeri tidak lagi berdiri sebagai pita terpisah di atas
-   hero; ia menjadi latar hero, dan statistik ikut masuk ke dalam
-   hero supaya tidak ada ruang kosong yang terbuang.
+   19. HERO — GALERI BLUR SEBAGAI LATAR
+   Tiap foto galeri dipasang pas satu layar, diberi efek blur, dan
+   ditaruh sebagai latar hero. Tidak ada lapisan gelap: yang dipakai
+   adalah lapisan cahaya (warna tema) supaya hero tetap terang di mode
+   terang dan tetap nyaman di mode gelap. Latar ini juga bisa digeser
+   pengguna (drag di desktop, geser di layar sentuh).
 ========================================================= */
+:root {
+  --hero-blur: 22px;
+  --hero-ink: var(--ink);
+  --hero-muted: color-mix(in srgb, var(--ink) 74%, var(--muted));
+  --hero-surface: color-mix(in srgb, var(--card) 82%, transparent);
+  --hero-line: color-mix(in srgb, var(--line) 92%, transparent);
+  --hero-wash: linear-gradient(100deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.73) 40%, rgba(255, 255, 255, 0.62) 72%, rgba(255, 255, 255, 0.82) 100%);
+}
+
+[data-theme='dark'] {
+  --hero-blur: 26px;
+  --hero-wash: linear-gradient(100deg, rgba(15, 18, 32, 0.94) 0%, rgba(15, 18, 32, 0.83) 42%, rgba(21, 26, 43, 0.74) 72%, rgba(15, 18, 32, 0.9) 100%);
+}
+
 .hero-section {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  color: #fff;
-  background: #0a0d18;
-  padding-block: clamp(56px, 6.5vw, 84px) clamp(38px, 4.5vw, 58px);
+  color: var(--hero-ink);
+  background: var(--paper-2);
+  padding-block: clamp(52px, 6vw, 78px) clamp(34px, 4vw, 52px);
 }
 
 .hero-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  cursor: grab;
 }
 
 .hero-bg::-webkit-scrollbar {
   display: none;
 }
 
-.hero-bg-track {
-  display: flex;
-  align-items: stretch;
-  height: 100%;
-  width: max-content;
+.hero-bg.is-dragging {
+  cursor: grabbing;
 }
 
+.hero-bg-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+/* Satu foto = satu layar penuh, jadi latar tidak pernah "kelebihan besar" */
 .hero-bg-slide {
-  flex: 0 0 auto;
+  flex: 0 0 100%;
   height: 100%;
   margin: 0;
+  position: relative;
   overflow: hidden;
 }
 
 .hero-bg-slide img {
+  width: 100%;
   height: 100%;
-  width: auto;
-  aspect-ratio: 4 / 5;
   object-fit: cover;
   display: block;
-  filter: saturate(0.92) contrast(1.03);
+  transform: scale(1.14);
+  filter: blur(var(--hero-blur)) saturate(1.06);
+  pointer-events: none;
+  user-select: none;
 }
 
+/* Lapisan cahaya (bukan lapisan gelap) agar teks tetap terbaca tanpa menggelapkan foto */
 .hero-veil {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background:
-    linear-gradient(96deg, rgba(9, 11, 22, 0.96) 0%, rgba(9, 11, 22, 0.92) 34%, rgba(9, 11, 22, 0.74) 60%, rgba(9, 11, 22, 0.5) 100%),
-    linear-gradient(180deg, rgba(240, 57, 77, 0.24) 0%, rgba(240, 57, 77, 0) 46%),
-    linear-gradient(0deg, rgba(10, 13, 24, 0.5) 0%, rgba(10, 13, 24, 0) 42%);
+  background: var(--hero-wash);
 }
 
 /* Sapuan halus menuju warna halaman di tepi bawah hero */
@@ -9139,10 +9161,10 @@ h2 em {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
-  height: 74px;
+  height: 58px;
   z-index: 2;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0), color-mix(in srgb, var(--paper) 76%, transparent));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), color-mix(in srgb, var(--paper) 72%, transparent));
 }
 
 .hero-grid,
@@ -9152,16 +9174,16 @@ h2 em {
 }
 
 .hero-section .eyebrow {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  background: var(--hero-surface);
+  border: 1.5px solid var(--hero-line);
+  color: var(--red);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 
 .hero-section .eyebrow-dot {
-  background: #48e08a;
-  box-shadow: 0 0 0 4px rgba(72, 224, 138, 0.22);
+  background: var(--green);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 24%, transparent);
 }
 
 .hero-copy .hero-title {
@@ -9169,7 +9191,7 @@ h2 em {
   font-size: clamp(46px, 6.2vw, 84px);
   line-height: 0.94;
   letter-spacing: -0.05em;
-  color: #fff;
+  color: var(--hero-ink);
   text-wrap: balance;
 }
 
@@ -9178,44 +9200,30 @@ h2 em {
 }
 
 .hero-title em {
-  color: var(--yellow);
+  color: var(--red);
 }
 
 .hero-section .hero-lede {
   max-width: 520px;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--hero-muted);
   font-size: 16px;
   line-height: 1.72;
   text-wrap: pretty;
 }
 
 .hero-section .hero-lede strong {
-  color: var(--yellow);
+  color: var(--red);
 }
 
 .hero-section .hero-actions {
   margin-top: 26px;
 }
 
+/* Tombol hantu di atas foto: permukaan kaca tipis, warna tetap ikut tema */
 .hero-section .button-ghost {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow:
-    inset 0 0 0 2px rgba(255, 255, 255, 0.45),
-    0 4px 0 rgba(0, 0, 0, 0.45);
-}
-
-.hero-section .button-ghost:hover {
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow:
-    inset 0 0 0 2px rgba(255, 255, 255, 0.75),
-    0 6px 0 rgba(0, 0, 0, 0.45);
-}
-
-.hero-section .button-ghost:active {
-  box-shadow:
-    inset 0 0 0 2px rgba(255, 255, 255, 0.75),
-    0 1px 0 rgba(0, 0, 0, 0.45);
+  background: var(--hero-surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .hero-copy .hero-note {
@@ -9225,66 +9233,58 @@ h2 em {
   margin-top: 22px;
   padding: 9px 17px 9px 13px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1.5px solid rgba(255, 255, 255, 0.24);
+  background: var(--hero-surface);
+  border: 1.5px solid var(--hero-line);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: rgba(255, 255, 255, 0.94);
+  color: var(--hero-ink);
   font: 700 12px var(--display);
 }
 
 .hero-section .pulse-dot {
-  background: #48e08a;
-  box-shadow: 0 0 0 5px rgba(72, 224, 138, 0.24);
+  background: var(--green);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--green) 24%, transparent);
 }
 
-/* Ornamen hero jadi kaca yang mengapung di atas foto */
+/* Ornamen hero: sekarang kaca berwarna tipis, bukan panel gelap */
 .hero-section .art-circle-back {
-  background: linear-gradient(150deg, color-mix(in srgb, var(--red) 60%, transparent), rgba(207, 31, 56, 0.42));
-  border: 1.5px solid rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 30px 60px -26px rgba(0, 0, 0, 0.8), inset 0 -18px 40px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(150deg, color-mix(in srgb, var(--red) 68%, transparent), color-mix(in srgb, var(--red-dark) 44%, transparent));
+  border: 1.5px solid color-mix(in srgb, var(--red) 30%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 30px 60px -32px color-mix(in srgb, var(--red) 70%, transparent);
 }
 
 .hero-section .art-circle-mid {
-  border: 3px dashed rgba(255, 255, 255, 0.42);
+  border: 3px dashed color-mix(in srgb, var(--red) 42%, transparent);
 }
 
 .hero-section .art-cross {
-  color: #fff;
-  opacity: 0.92;
+  color: color-mix(in srgb, var(--red) 58%, #fff);
+  opacity: 1;
 }
 
 .hero-section .art-card {
-  background: rgba(11, 14, 28, 0.62);
-  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  background: var(--hero-surface);
+  border: 1.5px solid var(--hero-line);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 20px 36px -22px rgba(0, 0, 0, 0.85);
-}
-
-.hero-section .art-card b {
-  color: #fff;
+  box-shadow: var(--shadow);
 }
 
 .hero-section .art-card small {
-  color: rgba(255, 255, 255, 0.76);
-}
-
-.hero-section .art-card svg {
-  color: #ff9aa6;
+  color: var(--hero-muted);
 }
 
 .hero-section .art-icon {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
+  background: color-mix(in srgb, var(--red) 16%, transparent);
+  color: var(--red);
 }
 
 .hero-section .art-label {
-  background: #fff;
-  color: #191c2e;
-  box-shadow: 0 16px 30px -18px rgba(0, 0, 0, 0.85);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow-elevated);
 }
 
 .hero-section .art-label strong {
@@ -9292,7 +9292,7 @@ h2 em {
 }
 
 .hero-section .art-badge {
-  box-shadow: 0 4px 0 var(--yellow-strong), 0 18px 32px -18px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 4px 0 var(--yellow-strong), var(--shadow);
 }
 
 /* Statistik ringkas di dalam hero */
@@ -9310,16 +9310,16 @@ h2 em {
   grid-template-columns: auto 1fr;
   column-gap: 14px;
   align-items: center;
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  border: 1.5px solid var(--hero-line);
   border-radius: 20px;
-  background: rgba(11, 14, 28, 0.5);
+  background: var(--hero-surface);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
 .hero-stats .stat svg {
   grid-row: 1 / 3;
-  color: var(--yellow);
+  color: var(--red);
   width: 20px;
 }
 
@@ -9328,16 +9328,16 @@ h2 em {
   font-size: clamp(26px, 2.9vw, 34px);
   letter-spacing: -0.05em;
   line-height: 1;
-  color: #fff;
+  color: var(--hero-ink);
 }
 
 .hero-stats .stat strong small {
-  color: var(--yellow);
+  color: var(--red);
   font: 700 20px var(--display);
 }
 
 .hero-stats .stat span {
-  color: rgba(255, 255, 255, 0.74);
+  color: var(--hero-muted);
   font: 700 10.5px var(--display);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -9579,10 +9579,6 @@ html[data-motion='dikurangi'] {
   scroll-behavior: auto;
 }
 
-html[data-motion='dikurangi'] .hero-bg {
-  opacity: 0.72;
-}
-
 /* --- Kontras tinggi: permukaan solid, garis tegas --- */
 html[data-contrast='tinggi'] {
   --paper: #ffffff;
@@ -9640,8 +9636,21 @@ html[data-contrast='tinggi'][data-theme='dark'] {
   --panel-line: #ffffff;
 }
 
-html[data-contrast='tinggi'] .hero-veil {
-  background: rgba(0, 0, 0, 0.93);
+html[data-contrast='tinggi'] {
+  --hero-blur: 30px;
+  --hero-ink: #000000;
+  --hero-muted: #141414;
+  --hero-surface: #ffffff;
+  --hero-line: #000000;
+  --hero-wash: linear-gradient(100deg, rgba(255, 255, 255, 0.97) 0%, rgba(255, 255, 255, 0.94) 55%, rgba(255, 255, 255, 0.97) 100%);
+}
+
+html[data-contrast='tinggi'][data-theme='dark'] {
+  --hero-ink: #ffffff;
+  --hero-muted: #ededed;
+  --hero-surface: #000000;
+  --hero-line: #ffffff;
+  --hero-wash: linear-gradient(100deg, rgba(0, 0, 0, 0.97) 0%, rgba(0, 0, 0, 0.94) 55%, rgba(0, 0, 0, 0.97) 100%);
 }
 
 html[data-contrast='tinggi'] .hero-section::after {
@@ -9649,32 +9658,17 @@ html[data-contrast='tinggi'] .hero-section::after {
 }
 
 html[data-contrast='tinggi'] .hero-bg-slide img {
-  filter: grayscale(1) contrast(1.05);
+  filter: blur(var(--hero-blur)) grayscale(1) contrast(1.06);
 }
 
+html[data-contrast='tinggi'] .hero-section .eyebrow,
 html[data-contrast='tinggi'] .hero-section .art-card,
 html[data-contrast='tinggi'] .hero-stats .stat,
-html[data-contrast='tinggi'] .hero-copy .hero-note {
-  background: #000;
-  border-color: #fff;
+html[data-contrast='tinggi'] .hero-copy .hero-note,
+html[data-contrast='tinggi'] .hero-section .button-ghost {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-html[data-contrast='tinggi'] .hero-title em,
-html[data-contrast='tinggi'] .hero-section .hero-lede strong {
-  color: #ffe066;
-}
-
-html[data-contrast='tinggi'] .hero-section .hero-lede,
-html[data-contrast='tinggi'] .hero-stats .stat span,
-html[data-contrast='tinggi'] .hero-section .art-card small {
-  color: #ffffff;
-}
-
-html[data-contrast='tinggi'] .hero-section .button-ghost {
-  background: #000;
-  box-shadow: inset 0 0 0 2px #fff, 0 4px 0 #fff;
+  border-color: var(--hero-line);
 }
 
 html[data-contrast='tinggi'] .notice-bar,
@@ -9746,10 +9740,13 @@ html[data-contrast='lembut'][data-theme='dark'] {
   --panel-line: #333639;
 }
 
-html[data-contrast='lembut'] .hero-veil {
-  background:
-    linear-gradient(96deg, rgba(24, 22, 20, 0.95) 0%, rgba(24, 22, 20, 0.9) 34%, rgba(24, 22, 20, 0.74) 60%, rgba(24, 22, 20, 0.52) 100%),
-    linear-gradient(180deg, rgba(196, 85, 77, 0.2) 0%, rgba(196, 85, 77, 0) 46%);
+html[data-contrast='lembut'] {
+  --hero-blur: 20px;
+  --hero-wash: linear-gradient(100deg, rgba(246, 241, 230, 0.94) 0%, rgba(246, 241, 230, 0.82) 45%, rgba(246, 241, 230, 0.75) 75%, rgba(246, 241, 230, 0.9) 100%);
+}
+
+html[data-contrast='lembut'][data-theme='dark'] {
+  --hero-wash: linear-gradient(100deg, rgba(25, 26, 29, 0.94) 0%, rgba(32, 34, 38, 0.84) 45%, rgba(32, 34, 38, 0.78) 75%, rgba(25, 26, 29, 0.92) 100%);
 }
 
 html[data-contrast='lembut'] .a11y-fab {

@@ -24,6 +24,8 @@ if (!fs.existsSync(DIST)) {
 const html = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
 const bundleName = fs.readdirSync(path.join(DIST, "assets")).find((f) => f.startsWith("index") && f.endsWith(".js"));
 const bundle = fs.readFileSync(path.join(DIST, "assets", bundleName), "utf8");
+const cssName = fs.readdirSync(path.join(DIST, "assets")).find((f) => f.startsWith("index") && f.endsWith(".css"));
+const builtCss = cssName ? fs.readFileSync(path.join(DIST, "assets", cssName), "utf8") : "";
 
 let passed = 0, failed = 0;
 const failures = [];
@@ -113,8 +115,31 @@ console.log("\n== Skenario 1: Navigasi & halaman publik ==");
     heroSection.querySelector(".hero-bg")?.getAttribute("aria-hidden") === "true" &&
     [...heroSection.querySelectorAll(".hero-bg-slide img")].every((img) => img.getAttribute("alt") === "")
   );
-  check("lapisan kontras di atas foto ada", Boolean(heroSection.querySelector(".hero-veil")));
+  check("lapisan cahaya di atas foto ada", Boolean(heroSection.querySelector(".hero-veil")));
+  check("tiap slide latar pas satu layar (bukan pita besar)", /\.hero-bg-slide\{[^}]*flex:0 0 100%/.test(builtCss));
+  check("gambar latar memakai efek blur", /\.hero-bg-slide img\{[^}]*blur\(var\(--hero-blur\)\)/.test(builtCss));
+  check("empat preset blur (normal/gelap/kontras tinggi/lembut)", (builtCss.match(/--hero-blur:/g) || []).length === 4);
+  check(
+    "latar memakai lapisan cahaya tema, bukan lapisan gelap",
+    /\.hero-veil\{[^}]*var\(--hero-wash\)/.test(builtCss) && !/rgba\(9,\s*11,\s*22|#090b16/.test(builtCss)
+  );
+
+  // --- Latar hero bisa digeser sendiri oleh pengguna ---
+  const heroBg = heroSection.querySelector(".hero-bg");
+  const pointer = (type, x) => heroBg.dispatchEvent(new window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, button: 0 }));
+  heroBg.scrollLeft = 500;
+  pointer("pointerdown", 200);
+  await sleep(40);
+  check("drag pada latar menampilkan kursor menggenggam", heroBg.className.includes("is-dragging"));
+  pointer("pointermove", 260);
+  await sleep(40);
+  check("latar hero benar-benar bergeser saat di-drag", Math.abs(heroBg.scrollLeft - 440) < 1);
+  pointer("pointerup", 260);
+  await sleep(40);
+  check("drag selesai mengembalikan keadaan latar", !heroBg.className.includes("is-dragging"));
+  heroBg.scrollLeft = 0;
   check("judul hero memakai 3 baris terkendali", heroSection.querySelectorAll(".hero-title > span").length === 3);
+  check("warna teks hero ikut tema (token --hero-ink)", /\.hero-copy \.hero-title\{[^}]*var\(--hero-ink\)/.test(builtCss));
   check("statistik menyatu di dalam hero", heroSection.querySelectorAll(".hero-stats .stat").length === 3);
   check("tidak ada lagi pita statistik terpisah", !document.querySelector(".stats-section"));
 

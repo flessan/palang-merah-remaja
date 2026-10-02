@@ -11,7 +11,7 @@ ceria. Mode gelap memakai palet navy dalam dengan aksen yang sama cerahnya.
 ## Fitur
 
 - React + Vite single-page navigation dengan URL `?tab=` yang tetap bisa di-bookmark.
-- **Hero beranda memakai galeri sebagai latar**: foto kegiatan berjalan pelan sebagai dinding foto di belakang teks (dekoratif, `aria-hidden`), dengan lapisan kontras agar teks tetap mudah dibaca. Statistik ikut menyatu di dalam hero sehingga tidak ada pita kosong terpisah.
+- **Hero beranda memakai galeri blur sebagai latar**: tiap foto dipasang **pas satu layar** (`flex: 0 0 100%` + `object-fit: cover`) lalu diberi **efek blur** (`--hero-blur`), jadi latarnya lembut dan tidak "kelebihan besar". Foto bergerak pelan sebagai dinding latar (dekoratif, `aria-hidden`) dan **bisa digeser sendiri** oleh pengunjung — drag di desktop, geser native di layar sentuh; gerak otomatisnya berhenti 2,6 detik setelah pengguna menyentuhnya, saat tab tidak aktif, atau saat hero di luar layar. Tanpa lapisan gelap: yang dipakai adalah lapisan cahaya (`--hero-wash`) yang ikut tema, sehingga hero tetap terang di mode terang dan tetap nyaman di mode gelap. Statistik menyatu di dalam hero sehingga tidak ada pita kosong terpisah.
 - **Menu aksesibilitas mengambang** (kiri bawah): ukuran teks (Normal/Besar/Ekstra), warna & kontras (Normal/Kontras tinggi/Warna lembut), jenis huruf (Normal/Mudah dibaca untuk disleksia), dan gerak (Aktif/Dikurangi) — tersimpan otomatis di peramban.
 - Mode terang/gelap (putih bersih ↔ navy dalam) dengan preferensi tersimpan; keduanya dirancang setara, bukan sekadar inversi.
 - Menu hamburger mobile: drawer geser penuh dengan ikon, deskripsi, toggle tema, dan tautan cepat.
@@ -155,12 +155,12 @@ pertama supaya tidak ada kedipan.
   peramban (konten mengalir ulang, bukan terpotong). Modal jadwal dipindahkan ke
   `<body>` lewat portal agar tetap presisi.
 - **Warna & kontras** — *Kontras tinggi* memakai permukaan solid, garis hitam/putih
-  tegas, dan sudut lebih tegas; *Warna lembut* memakai palet krem/redup yang
-  menenangkan mata.
+  tegas, sudut lebih tegas, dan latar hero yang nyaris pekat; *Warna lembut*
+  memakai palet krem/redup yang menenangkan mata.
 - **Jenis huruf** — *Mudah dibaca* mengganti seluruh tipografi ke Lexend/Verdana
   dengan spasi huruf & baris lebih lega (ramah disleksia).
 - **Gerak** — *Dikurangi* menghentikan animasi CSS sekaligus latar hero yang
-  berjalan.
+  berjalan (latar tetap bisa digeser manual).
 
 ### Jadwal shift (manual, bukan otomatis)
 
@@ -178,7 +178,8 @@ Modul **Jadwal Shift** di Portal Admin disusun manual:
 Smoke test E2E tanpa browser (berbasis jsdom) menjalankan bundle produksi asli
 lalu menstimulasikan interaksi pengguna: navigasi seluruh tab, halaman Sejarah,
 drawer hamburger, modal album/panduan, toggle tema gelap, tombol kembali ke atas,
-hero bergaleri (24 slide latar, statistik menyatu), menu aksesibilitas (empat
+hero bergaleri (24 slide latar, satu layar per foto, blur, bisa digeser, statistik
+menyatu), menu aksesibilitas (empat
 kelompok pengaturan, penerapan ke `<html>`, penyimpanan, dan atur ulang), login
 Portal Admin (PIN demo `2026`), penyusunan jadwal shift manual (tambah baris,
 dropdown pencarian anggota, hapus petugas/shift), pembukaan semua modal admin,
@@ -186,7 +187,7 @@ hingga kontrak endpoint Pages Functions — termasuk pemeriksaan tidak adanya si
 Neon/SQL/ORM dan tidak adanya lagi fungsi "jadwal jaga adil" otomatis.
 
 ```bash
-npm run test:smoke   # build + 151 pemeriksaan otomatis
+npm run test:smoke   # build + 159 pemeriksaan otomatis
 ```
 
 ## Deploy ke Cloudflare Pages
