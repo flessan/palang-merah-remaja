@@ -11,10 +11,12 @@ ceria. Mode gelap memakai palet navy dalam dengan aksen yang sama cerahnya.
 ## Fitur
 
 - React + Vite single-page navigation dengan URL `?tab=` yang tetap bisa di-bookmark.
+- **Hero beranda memakai galeri sebagai latar**: foto kegiatan berjalan pelan sebagai dinding foto di belakang teks (dekoratif, `aria-hidden`), dengan lapisan kontras agar teks tetap mudah dibaca. Statistik ikut menyatu di dalam hero sehingga tidak ada pita kosong terpisah.
+- **Menu aksesibilitas mengambang** (kiri bawah): ukuran teks (Normal/Besar/Ekstra), warna & kontras (Normal/Kontras tinggi/Warna lembut), jenis huruf (Normal/Mudah dibaca untuk disleksia), dan gerak (Aktif/Dikurangi) — tersimpan otomatis di peramban.
 - Mode terang/gelap (putih bersih ↔ navy dalam) dengan preferensi tersimpan; keduanya dirancang setara, bukan sekadar inversi.
 - Menu hamburger mobile: drawer geser penuh dengan ikon, deskripsi, toggle tema, dan tautan cepat.
 - Halaman **Sejarah & Pendiri** khusus (`?tab=sejarah`): lini masa, tingkatan PMR (Mula/Madya/Wira), dan para pendiri/penerus organisasi.
-- Beranda dengan kabar terbaru, agenda, statistik, jadwal jaga adil (UKS & lapangan), dan banner UKS.
+- Beranda dengan hero bergaleri, kabar terbaru, agenda, jadwal shift UKS & lapangan (disusun manual dari Portal Admin), dan banner UKS.
 - Profil, visi/misi, struktur organisasi yang dapat dibuka per divisi.
 - EduScope: panduan interaktif P3K (mimisan, pingsan, luka bakar, tersedak) dengan disclaimer medis.
 - Galeri responsif dengan pencarian, filter kategori, lightbox album, dan navigasi keyboard.
@@ -113,9 +115,10 @@ Seluruh gaya hidup di `src/styles.css`, dibagi menjadi tiga lapis:
    radius (`--cut*` kini berupa nilai sudut membulat 12–24px, bukan bentuk
    guntingan), gerak (`--bounce`), dan tipografi.
 2. **Aturan komponen** — struktur grid/flex halaman.
-3. **Lapisan *skin* Playful UI** (bagian bernomor 1–18 di akhir berkas) — warna,
-   bayangan, bentuk sudut, tipografi, dan gerak. Properti tata letak tidak
-   disentuh agar susunan halaman tetap sama.
+3. **Lapisan *skin* Playful UI** (bagian bernomor 1–22 di akhir berkas) — warna,
+   bayangan, bentuk sudut, tipografi, dan gerak (1–18), lalu latar hero (19),
+   menu aksesibilitas + mode kontras/huruf/gerak (20), perapian jarak antarbagian
+   (21), dan penyesuaian responsif hero (22). Struktur halaman tetap sama.
 
 ### Tombol playful
 
@@ -140,6 +143,25 @@ agar tetap kontras, dan bayangan 3D tombol diganti dasar hitam. Bagian 17 di
 akhir `src/styles.css` mengatur penyesuaian khusus: header, pita pengumuman,
 tabel admin, dropdown, chip berwarna lembut, panel gelap, dan kartu jadwal.
 
+### Aksesibilitas
+
+Tombol bulat di kiri bawah membuka panel **Aksesibilitas**. Semua pilihan
+disimpan di `localStorage` (`pmr_a11y`) dan diterapkan sebagai atribut pada
+`<html>` (`data-text`, `data-contrast`, `data-font`, `data-motion`) sehingga bisa
+diatur lewat CSS. Skrip kecil di `index.html` menerapkannya sebelum render
+pertama supaya tidak ada kedipan.
+
+- **Ukuran teks** — `zoom` pada `main#main-content`: mengikuti perilaku zoom
+  peramban (konten mengalir ulang, bukan terpotong). Modal jadwal dipindahkan ke
+  `<body>` lewat portal agar tetap presisi.
+- **Warna & kontras** — *Kontras tinggi* memakai permukaan solid, garis hitam/putih
+  tegas, dan sudut lebih tegas; *Warna lembut* memakai palet krem/redup yang
+  menenangkan mata.
+- **Jenis huruf** — *Mudah dibaca* mengganti seluruh tipografi ke Lexend/Verdana
+  dengan spasi huruf & baris lebih lega (ramah disleksia).
+- **Gerak** — *Dikurangi* menghentikan animasi CSS sekaligus latar hero yang
+  berjalan.
+
 ### Jadwal shift (manual, bukan otomatis)
 
 Modul **Jadwal Shift** di Portal Admin disusun manual:
@@ -156,13 +178,15 @@ Modul **Jadwal Shift** di Portal Admin disusun manual:
 Smoke test E2E tanpa browser (berbasis jsdom) menjalankan bundle produksi asli
 lalu menstimulasikan interaksi pengguna: navigasi seluruh tab, halaman Sejarah,
 drawer hamburger, modal album/panduan, toggle tema gelap, tombol kembali ke atas,
-login Portal Admin (PIN demo `2026`), penyusunan jadwal shift manual (tambah baris,
+hero bergaleri (24 slide latar, statistik menyatu), menu aksesibilitas (empat
+kelompok pengaturan, penerapan ke `<html>`, penyimpanan, dan atur ulang), login
+Portal Admin (PIN demo `2026`), penyusunan jadwal shift manual (tambah baris,
 dropdown pencarian anggota, hapus petugas/shift), pembukaan semua modal admin,
 hingga kontrak endpoint Pages Functions — termasuk pemeriksaan tidak adanya sisa
 Neon/SQL/ORM dan tidak adanya lagi fungsi "jadwal jaga adil" otomatis.
 
 ```bash
-npm run test:smoke   # build + 125 pemeriksaan otomatis
+npm run test:smoke   # build + 151 pemeriksaan otomatis
 ```
 
 ## Deploy ke Cloudflare Pages

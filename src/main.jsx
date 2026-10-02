@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
 import {
   Accessibility,
@@ -38,6 +39,7 @@ import {
   Phone,
   Play,
   Quote,
+  RotateCcw,
   Search,
   Send,
   ShieldCheck,
@@ -145,10 +147,129 @@ async function loadContent() {
   }
 }
 
+/* =========================================================
+   AKSESIBILITAS — menu mengambang (ukuran teks, warna, huruf, gerak)
+========================================================= */
+const A11Y_KEY = "pmr_a11y";
+const A11Y_DEFAULTS = { text: "normal", contrast: "normal", font: "normal", motion: "normal" };
+const A11Y_GROUPS = [
+  {
+    key: "text",
+    label: "Ukuran teks",
+    hint: "Perbesar seluruh isi halaman tanpa mengubah tata letaknya.",
+    options: [
+      { id: "normal", label: "Normal" },
+      { id: "besar", label: "Besar" },
+      { id: "ekstra", label: "Ekstra" },
+    ],
+  },
+  {
+    key: "contrast",
+    label: "Warna & kontras",
+    hint: "Kontras tinggi atau warna lembut yang nyaman untuk mata.",
+    options: [
+      { id: "normal", label: "Normal" },
+      { id: "tinggi", label: "Kontras tinggi" },
+      { id: "lembut", label: "Warna lembut" },
+    ],
+  },
+  {
+    key: "font",
+    label: "Jenis huruf",
+    hint: "Huruf \"Mudah dibaca\" lebih lega dan ramah disleksia.",
+    options: [
+      { id: "normal", label: "Normal" },
+      { id: "mudah", label: "Mudah dibaca" },
+    ],
+  },
+  {
+    key: "motion",
+    label: "Gerak & animasi",
+    hint: "Hentikan latar berjalan dan animasi lainnya.",
+    options: [
+      { id: "normal", label: "Aktif" },
+      { id: "dikurangi", label: "Dikurangi" },
+    ],
+  },
+];
+
+function AccessibilityMenu({ prefs, onChange, onReset }) {
+  const [open, setOpen] = useState(false);
+  const fabRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        fabRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  const activeCount = A11Y_GROUPS.filter((group) => prefs[group.key] !== A11Y_DEFAULTS[group.key]).length;
+
+  return (
+    <div className={`a11y-dock ${open ? "open" : ""}`}>
+      {open && (
+        <div className="a11y-panel" id="a11y-panel" role="dialog" aria-label="Menu aksesibilitas">
+          <div className="a11y-panel-head">
+            <span><Icon name="accessibility" size={17} /> Aksesibilitas</span>
+            <button type="button" className="a11y-close" onClick={() => setOpen(false)} aria-label="Tutup menu aksesibilitas"><X size={16} /></button>
+          </div>
+          {A11Y_GROUPS.map((group) => (
+            <div className="a11y-group" key={group.key} role="group" aria-label={group.label}>
+              <span className="a11y-group-label">{group.label}</span>
+              <div className="a11y-options">
+                {group.options.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`a11y-option ${prefs[group.key] === option.id ? "active" : ""}`}
+                    aria-pressed={prefs[group.key] === option.id}
+                    onClick={() => onChange(group.key, option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          <p className="a11y-hint">{activeCount > 0 ? `${activeCount} penyesuaian aktif. ` : ""}Pengaturan tersimpan otomatis di peramban ini.</p>
+          <button type="button" className="a11y-reset" onClick={onReset}><RotateCcw size={15} /> Atur ulang ke standar</button>
+        </div>
+      )}
+      <button
+        type="button"
+        ref={fabRef}
+        className="a11y-fab"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls="a11y-panel"
+        aria-label={open ? "Tutup menu aksesibilitas" : "Buka menu aksesibilitas"}
+        title="Menu aksesibilitas: ukuran teks, warna, huruf"
+      >
+        <Icon name="accessibility" size={22} />
+        {activeCount > 0 && <span className="a11y-fab-dot" aria-hidden="true">{activeCount}</span>}
+      </button>
+    </div>
+  );
+}
+
 function App() {
   const [content, setContent] = useState(fallbackContent);
   const [activeTab, setActiveTab] = useState(tabFromLocation);
   const [theme, setTheme] = useState(() => localStorage.getItem("pmr_theme") || "light");
+  const [a11y, setA11y] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(A11Y_KEY) || "{}");
+      return saved && typeof saved === "object" ? { ...A11Y_DEFAULTS, ...saved } : A11Y_DEFAULTS;
+    } catch {
+      return A11Y_DEFAULTS;
+    }
+  });
   const [toast, setToast] = useState(null);
   const [gallerySearch, setGallerySearch] = useState("");
   const [galleryFilter, setGalleryFilter] = useState("Semua");
@@ -171,6 +292,16 @@ function App() {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("pmr_theme", theme);
   }, [theme]);
+
+  // Terapkan preferensi aksesibilitas ke <html> agar bisa diatur lewat CSS
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.text = a11y.text;
+    root.dataset.contrast = a11y.contrast;
+    root.dataset.font = a11y.font;
+    root.dataset.motion = a11y.motion;
+    try { localStorage.setItem(A11Y_KEY, JSON.stringify(a11y)); } catch { /* mode privat: abaikan */ }
+  }, [a11y]);
 
   useEffect(() => {
     document.title = PAGE_TITLES[activeTab] || PAGE_TITLES.beranda;
@@ -314,7 +445,7 @@ function App() {
       />
 
       <main id="main-content">
-        {activeTab === "beranda" && <Home content={content} goTo={goTo} onGuide={() => goTo("edukasi")} />}
+        {activeTab === "beranda" && <Home content={content} goTo={goTo} onGuide={() => goTo("edukasi")} motionReduced={a11y.motion === "dikurangi"} />}
         {activeTab === "profil" && <Profile content={content} goTo={goTo} />}
         {activeTab === "sejarah" && <History content={content} goTo={goTo} />}
         {activeTab === "edukasi" && <Education content={content} onGuide={setSelectedGuide} />}
@@ -397,6 +528,12 @@ function App() {
       >
         <ArrowUp size={18} />
       </button>
+
+      <AccessibilityMenu
+        prefs={a11y}
+        onChange={(key, value) => setA11y((current) => ({ ...current, [key]: value }))}
+        onReset={() => setA11y(A11Y_DEFAULTS)}
+      />
     </div>
   );
 }
@@ -642,7 +779,8 @@ function PublicRosterModal({ roster, onClose }) {
     }
   };
 
-  return (
+  // Portal ke <body>: modal tetap di luar elemen yang di-zoom saat ukuran teks diperbesar
+  return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="admin-modal modal-lg modal-card" role="dialog" aria-modal="true" aria-label="Jadwal lengkap jaga UKS dan piket lapangan">
         <div className="modal-head">
@@ -709,7 +847,8 @@ function PublicRosterModal({ roster, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -870,12 +1009,58 @@ function UksServicePage({ content, goTo }) {
   );
 }
 
-function Home({ content, goTo, onGuide }) {
-  const sliderRef = useRef(null);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+function Home({ content, goTo, onGuide, motionReduced }) {
+  const backdropRef = useRef(null);
+
+  // Latar hero: galeri berjalan pelan sebagai dinding foto (dekoratif).
+  // Berhenti otomatis saat preferensi gerak dikurangi, tab tidak aktif,
+  // atau hero sedang tidak terlihat di layar.
+  useEffect(() => {
+    const track = backdropRef.current;
+    if (!track || motionReduced) return undefined;
+
+    const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (media && media.matches) return undefined;
+
+    let frame;
+    let last = performance.now();
+    let onScreen = true;
+    const speed = 0.022; // px per milidetik — pelan supaya teks tetap nyaman dibaca
+
+    const step = (now) => {
+      const delta = Math.min(now - last, 64);
+      last = now;
+      if (onScreen && !document.hidden) {
+        const setWidth = track.scrollWidth / 3;
+        if (setWidth > 0) {
+          track.scrollLeft += speed * delta;
+          if (track.scrollLeft >= setWidth * 2) track.scrollLeft -= setWidth;
+          else if (track.scrollLeft <= 0) track.scrollLeft += setWidth;
+        }
+      }
+      frame = requestAnimationFrame(step);
+    };
+
+    frame = requestAnimationFrame(step);
+
+    const onVisibility = () => { last = performance.now(); };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    let observer;
+    if ("IntersectionObserver" in window) {
+      observer = new IntersectionObserver((entries) => {
+        const entry = entries[0];
+        onScreen = Boolean(entry && entry.isIntersecting);
+      }, { threshold: [0, 0.2] });
+      observer.observe(track);
+    }
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("visibilitychange", onVisibility);
+      observer?.disconnect();
+    };
+  }, [motionReduced]);
 
   const heroImages = [
     '/gudang/gallery/1.jpg',
@@ -888,140 +1073,28 @@ function Home({ content, goTo, onGuide }) {
     '/gudang/gallery/8.jpg',
   ];
 
-  // Duplikasi gambar 3x untuk seamless loop
+  // Digandakan 3x supaya gulirannya menyambung tanpa jeda
   const loopedImages = [...heroImages, ...heroImages, ...heroImages];
-
-  // Auto scroll smooth
-  useEffect(() => {
-    if (isPaused || isDragging) return;
-
-    const slider = sliderRef.current;
-    if (!slider) return;
-
-    let animationId;
-    let lastTime = performance.now();
-    const speed = 0.05; // pixel per millisecond (smooth speed)
-
-    const animate = (currentTime) => {
-      const deltaTime = currentTime - lastTime;
-      lastTime = currentTime;
-
-      slider.scrollLeft += speed * deltaTime;
-
-      // Reset ke tengah saat mencapai akhir (untuk seamless loop)
-      const singleSetWidth = slider.scrollWidth / 3;
-      if (slider.scrollLeft >= singleSetWidth * 2) {
-        slider.scrollLeft = singleSetWidth;
-      } else if (slider.scrollLeft <= 0) {
-        slider.scrollLeft = singleSetWidth;
-      }
-
-      animationId = requestAnimationFrame(animate);
-    };
-
-    animationId = requestAnimationFrame(animate);
-
-    return () => cancelAnimationFrame(animationId);
-  }, [isPaused, isDragging]);
-
-  // Mouse drag
-  const handleMouseDown = (e) => {
-    setIsDragging(true);
-    setStartX(e.pageX - sliderRef.current.offsetLeft);
-    setScrollLeft(sliderRef.current.scrollLeft);
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    e.preventDefault();
-    const x = e.pageX - sliderRef.current.offsetLeft;
-    const walk = (x - startX) * 2;
-    sliderRef.current.scrollLeft = scrollLeft - walk;
-  };
-
-  const handleMouseUpOrLeave = () => {
-    setIsDragging(false);
-  };
-
-  // Touch events
-  const handleTouchStart = (e) => {
-    setStartX(e.touches[0].pageX - sliderRef.current.offsetLeft);
-    setScrollLeft(sliderRef.current.scrollLeft);
-  };
-
-  const handleTouchMove = (e) => {
-    const x = e.touches[0].pageX - sliderRef.current.offsetLeft;
-    const walk = (x - startX) * 2;
-    sliderRef.current.scrollLeft = scrollLeft - walk;
-  };
+  const stats = content.stats || [];
 
   return <>
-    {/* ===== INFINITE LOOP SLIDER ===== */}
-    <div
-      ref={sliderRef}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUpOrLeave}
-      onMouseLeave={handleMouseUpOrLeave}
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseOut={() => setIsPaused(false)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      style={{
-        position: 'relative',
-        width: '100%',
-        overflowX: 'auto',
-        overflowY: 'hidden',
-        WebkitOverflowScrolling: 'touch',
-        cursor: isDragging ? 'grabbing' : 'grab',
-        borderRadius: '15px',
-        marginBottom: '20px',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none',
-      }}
-    >
-      <style>{`
-        div::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
-
-      <div style={{ display: 'flex', width: 'max-content' }}>
-        {loopedImages.map((img, i) => (
-          <div
-            key={i}
-            style={{
-              flexShrink: 0,
-              width: '100%',
-              maxWidth: '300px',
-              aspectRatio: '4 / 5',
-              position: 'relative',
-              userSelect: 'none',
-            }}
-          >
-            <img
-              src={img}
-              alt={`Slide ${(i % heroImages.length) + 1}`}
-              draggable={false}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                pointerEvents: 'none',
-              }}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-    {/* ===== END INFINITE LOOP SLIDER ===== */}
     <section className="hero-section page-section">
+      {/* Galeri berjalan = latar hero (dekoratif, disembunyikan dari pembaca layar) */}
+      <div className="hero-bg" ref={backdropRef} aria-hidden="true">
+        <div className="hero-bg-track">
+          {loopedImages.map((img, index) => (
+            <figure className="hero-bg-slide" key={`${img}-${index}`}>
+              <img src={img} alt="" draggable={false} loading={index < 6 ? "eager" : "lazy"} decoding="async" />
+            </figure>
+          ))}
+        </div>
+      </div>
+      <span className="hero-veil" aria-hidden="true" />
+
       <div className="hero-grid container">
         <div className="hero-copy">
           <div className="eyebrow"><span className="eyebrow-dot" /> EKSTRAKURIKULER KEMANUSIAAN · 2026/2027</div>
-          <h1>Siap.<br /><em>Tanggap.</em><br />Selamatkan.</h1>
+          <h1 className="hero-title"><span>Siap.</span><span><em>Tanggap.</em></span><span>Selamatkan.</span></h1>
           <p className="hero-lede">Membentuk generasi <strong>humanis</strong> yang peduli, terampil, dan siap beraksi untuk kemanusiaan di sekolah maupun masyarakat.</p>
           <div className="hero-actions">
             <button className="button button-primary" onClick={() => goTo("profil")}><Users size={18} /> Kenali PMR Wira <ArrowRight size={17} /></button>
@@ -1037,9 +1110,14 @@ function Home({ content, goTo, onGuide }) {
           <div className="art-label">BE<br />THE<br />HELP</div>
         </div>
       </div>
-    </section>
 
-    <section className="stats-section"><div className="container stats-grid">{content.stats.map((stat) => <div className="stat" key={stat.label}><Icon name={stat.icon} size={22} /><strong>{stat.value}<small>+</small></strong><span>{stat.label}</span></div>)}</div></section>
+      {/* Statistik digabung ke dalam hero supaya tidak ada pita kosong terpisah */}
+      {stats.length > 0 && (
+        <div className="hero-stats container">
+          {stats.map((stat) => <div className="stat" key={stat.label}><Icon name={stat.icon} size={20} /><strong>{stat.value}<small>+</small></strong><span>{stat.label}</span></div>)}
+        </div>
+      )}
+    </section>
 
     <PublicRosterWidget roster={content.roster} />
     <UksHomepageBanner uksInfo={content.uks_info} goTo={goTo} />

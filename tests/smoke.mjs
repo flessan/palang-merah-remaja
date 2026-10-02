@@ -104,6 +104,57 @@ console.log("\n== Skenario 1: Navigasi & halaman publik ==");
   check("beranda bebas 'Pesan Masuk'/'FAQ'", !/pesan masuk|faq/i.test(pageText(document)));
   check("tidak ada bottom-nav lama", !document.querySelector(".bottom-nav"));
 
+  // --- Hero baru: galeri sebagai latar + statistik menyatu di dalam hero ---
+  const heroSection = document.querySelector(".hero-section");
+  check("hero memakai galeri sebagai latar", Boolean(heroSection.querySelector(".hero-bg-track")));
+  check("latar hero berisi 3 set galeri (24 slide)", heroSection.querySelectorAll(".hero-bg-slide").length === 24);
+  check(
+    "gambar latar dekoratif (alt kosong + aria-hidden)",
+    heroSection.querySelector(".hero-bg")?.getAttribute("aria-hidden") === "true" &&
+    [...heroSection.querySelectorAll(".hero-bg-slide img")].every((img) => img.getAttribute("alt") === "")
+  );
+  check("lapisan kontras di atas foto ada", Boolean(heroSection.querySelector(".hero-veil")));
+  check("judul hero memakai 3 baris terkendali", heroSection.querySelectorAll(".hero-title > span").length === 3);
+  check("statistik menyatu di dalam hero", heroSection.querySelectorAll(".hero-stats .stat").length === 3);
+  check("tidak ada lagi pita statistik terpisah", !document.querySelector(".stats-section"));
+
+  // --- Menu aksesibilitas mengambang ---
+  check("tombol aksesibilitas tersedia", Boolean(document.querySelector(".a11y-fab")));
+  check("panel aksesibilitas awalnya tertutup", !document.querySelector(".a11y-panel"));
+  click(document.querySelector(".a11y-fab"));
+  await sleep(80);
+  const a11yPanel = document.querySelector(".a11y-panel");
+  check("panel aksesibilitas terbuka", Boolean(a11yPanel));
+  check("panel punya 4 kelompok pengaturan", a11yPanel.querySelectorAll(".a11y-group").length === 4);
+  check("panel punya tombol atur ulang", Boolean(a11yPanel.querySelector(".a11y-reset")));
+
+  const a11yGroup = (label) => [...a11yPanel.querySelectorAll(".a11y-group")].find((group) => group.textContent.toLowerCase().includes(label));
+  click(byText(a11yGroup("ukuran teks"), "button", "Besar"));
+  await sleep(60);
+  check("ukuran teks 'Besar' diterapkan ke <html>", document.documentElement.dataset.text === "besar");
+  click(byText(a11yGroup("warna"), "button", "Kontras tinggi"));
+  await sleep(60);
+  check("mode kontras tinggi aktif", document.documentElement.dataset.contrast === "tinggi");
+  click(byText(a11yGroup("jenis huruf"), "button", "Mudah dibaca"));
+  await sleep(60);
+  check("huruf mudah dibaca (disleksia) aktif", document.documentElement.dataset.font === "mudah");
+  click(byText(a11yGroup("gerak"), "button", "Dikurangi"));
+  await sleep(60);
+  check("preferensi gerak dikurangi aktif", document.documentElement.dataset.motion === "dikurangi");
+  check("badge jumlah penyesuaian muncul", Boolean(document.querySelector(".a11y-fab-dot")));
+  check("preferensi tersimpan di localStorage", (JSON.parse(window.localStorage.getItem("pmr_a11y")) || {}).contrast === "tinggi");
+
+  click(document.querySelector(".a11y-reset"));
+  await sleep(60);
+  check(
+    "atur ulang mengembalikan semua ke standar",
+    ["text", "contrast", "font", "motion"].every((key) => document.documentElement.dataset[key] === "normal")
+  );
+  check("badge penyesuaian hilang setelah atur ulang", !document.querySelector(".a11y-fab-dot"));
+  window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" }));
+  await sleep(60);
+  check("Escape menutup panel aksesibilitas", !document.querySelector(".a11y-panel"));
+
   // --- Sejarah ---
   click(navBtns.find((b) => b.textContent.trim() === "Sejarah"));
   await sleep(200);

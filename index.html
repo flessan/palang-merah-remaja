@@ -31,6 +31,23 @@
     <link rel="canonical" href="https://pmr.likesyou.org/" />
     <link rel="manifest" href="/manifest.webmanifest" />
 
+    <!-- Terapkan tema & preferensi aksesibilitas sebelum render pertama (anti-kedip) -->
+    <script>
+      (function () {
+        try {
+          var root = document.documentElement;
+          root.dataset.theme = localStorage.getItem("pmr_theme") || "light";
+          var a11y = JSON.parse(localStorage.getItem("pmr_a11y") || "{}") || {};
+          root.dataset.text = a11y.text || "normal";
+          root.dataset.contrast = a11y.contrast || "normal";
+          root.dataset.font = a11y.font || "normal";
+          root.dataset.motion = a11y.motion || "normal";
+        } catch (error) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+
     <!-- Preconnect for performance / SEO -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
