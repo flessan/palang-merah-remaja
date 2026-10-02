@@ -4,8 +4,8 @@
   "description": "Situs resmi PMR Wira — Ekstrakurikuler Palang Merah Remaja SMKN 4 Banjarmasin. Humanis • Peduli • Tanggap. Edukasi P3K, jadwal UKS, sejarah & galeri kegiatan.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#e8dcc2",
-  "theme_color": "#d3273e",
+  "background_color": "#f4f5fb",
+  "theme_color": "#f0394d",
   "lang": "id",
   "scope": "/",
   "icons": [

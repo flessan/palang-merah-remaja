@@ -286,6 +286,65 @@ console.log("\n== Skenario 3: Portal Admin ==");
   check("modal Divisi terbuka tanpa crash", await openModal("Tambah Divisi", "Kelola Divisi"));
   await closeModal();
 
+  // --- Jadwal shift: penyusunan manual + dropdown pencarian anggota ---
+  await openSubnav("Jadwal Shift");
+  const rosterText = document.querySelector("main").textContent;
+  check("tab jadwal memakai istilah 'Jadwal Shift'", /manajemen jadwal shift/i.test(rosterText));
+  check("tidak ada lagi fungsi jadwal jaga 'adil'", !/jadwal jaga adil|keadilan|fair shuffl|acak & generate/i.test(rosterText));
+  check("tidak ada tombol generator otomatis", !byText(document.querySelector("main"), "button", "Generate"));
+
+  const dateInput = document.querySelector(".roster-add-bar input[type='date']");
+  const initialRows = document.querySelectorAll(".rss-list .rss-row").length;
+  check("ada input tanggal shift baru", Boolean(dateInput));
+  check("jadwal lama tetap dimuat sebagai baris shift", initialRows > 0);
+  if (dateInput) {
+    setInputValue(window, dateInput, "2026-09-07");
+    click(byText(document.querySelector(".roster-add-bar"), "button", "Tambah Baris Shift"));
+    await sleep(220);
+
+    const rows = [...document.querySelectorAll(".rss-list .rss-row")];
+    check("baris shift baru bertambah manual", rows.length === initialRows + 1);
+    const newRow = rows[rows.length - 1];
+    check("label tanggal shift terbentuk otomatis", /Senin, 7 September 2026/.test(newRow?.textContent || ""));
+
+    const trigger = newRow?.querySelector(".mp-trigger");
+    check("ada dropdown 'Tambah petugas' pada baris shift", Boolean(trigger));
+    click(trigger);
+    await sleep(150);
+    check("dropdown anggota terbuka", Boolean(document.querySelector(".mp-menu")));
+
+    const searchBox = document.querySelector(".mp-search input");
+    check("dropdown punya kolom pencarian", Boolean(searchBox));
+    setInputValue(window, searchBox, "assyifa");
+    await sleep(150);
+    const options = [...document.querySelectorAll(".mp-option")];
+    check("pencarian menyaring daftar anggota", options.length >= 1 && /assyifa/i.test(options[0].textContent));
+
+    click(options[0]);
+    await sleep(200);
+    const currentRow = [...document.querySelectorAll(".rss-list .rss-row")].at(-1);
+    const chosenName = currentRow?.querySelector(".petugas-pill input")?.value || "";
+    check("anggota terpilih masuk sebagai petugas shift", /assyifa qolbi/i.test(chosenName));
+    check("dropdown tertutup setelah memilih", !document.querySelector(".mp-menu"));
+
+    const removeBtn = currentRow?.querySelector(".petugas-remove");
+    check("petugas bisa dihapus dari shift", Boolean(removeBtn));
+    if (removeBtn) {
+      click(removeBtn);
+      await sleep(180);
+      const afterRemove = [...document.querySelectorAll(".rss-list .rss-row")].at(-1);
+      check("petugas terhapus dari baris shift", !afterRemove?.querySelector(".petugas-pill"));
+    }
+
+    const deleteRow = [...document.querySelectorAll(".rss-list .rss-row")].at(-1)?.querySelector(".rss-delete");
+    check("baris shift bisa dihapus", Boolean(deleteRow));
+    if (deleteRow) {
+      click(deleteRow);
+      await sleep(200);
+      check("baris shift terhapus", document.querySelectorAll(".rss-list .rss-row").length === initialRows);
+    }
+  }
+
   await openSubnav("Pengaturan");
   check("pengaturan tanpa editor FAQ", !/faq|pertanyaan yang sering/i.test(document.querySelector("main").textContent));
   check("pengaturan punya catatan bergabung", /bergabung|kontak/i.test(document.querySelector("main").textContent));
@@ -385,6 +444,34 @@ console.log("\n== Skenario 5: Pages Functions API ==");
 
   res = await onRequest(ctx("https://x.test/api/admin/announcements", { method: "POST", headers: { "X-Admin-Pin": "2026" }, body: JSON.stringify({ title: "Uji" }) }));
   check("admin announcements demo mode menyimpan di memori (200)", res.status === 200 && (await res.json()).persisted === false);
+
+  // Demo mode: perubahan admin harus langsung terbaca endpoint publik.
+  const rosterPayload = {
+    key: "roster",
+    value: {
+      periode: "September 2026",
+      bulan_label: "September 2026",
+      keterangan: "Jadwal September (uji)",
+      petugas_per_shift_uks: 1,
+      petugas_per_shift_lapangan: 8,
+      uks_schedule: [{ tanggal: "Senin, 7 September 2026", hari: "Senin", petugas: ["Assyifa Qolbi"] }],
+      lapangan_schedule: [],
+      is_published: true,
+    },
+  };
+  res = await onRequest(ctx("https://x.test/api/admin/content", { method: "POST", headers: { "X-Admin-Pin": "2026" }, body: JSON.stringify(rosterPayload) }));
+  check("admin menyimpan jadwal shift manual (200)", res.status === 200);
+
+  res = await onRequest(ctx("https://x.test/api/content"));
+  const afterSave = await res.json();
+  check("jadwal shift baru terbaca di API publik", afterSave.roster?.periode === "September 2026" && afterSave.roster.uks_schedule.length === 1);
+  check("jadwal shift tanpa kunci 'summary_counts' gaya lama", !("summary_counts" in (afterSave.roster || {})));
+
+  res = await onRequest(ctx("https://x.test/api/admin/reset", { method: "POST", headers: { "X-Admin-Pin": "2026" } }));
+  check("admin reset mengembalikan data demo", res.status === 200);
+  res = await onRequest(ctx("https://x.test/api/content"));
+  const afterReset = await res.json();
+  check("reset memulihkan periode jadwal bawaan", afterReset.roster?.periode !== "September 2026");
 }
 
 /* ================== Skenario 6: klien Telegraph Cloud ================== */

@@ -16,14 +16,8 @@
  */
 import { clean, error, json, readBody } from "./response.js";
 import { COLLECTIONS, CONTENT_KEYS, MEDIA_BUCKET, formatDateLabel, galleryToDocument, todayISO } from "./collections.js";
-import { demoClone, getClient, invalidateContentCache, loadSiteData, saveContentKey } from "./content-store.js";
+import { getClient, getDemoStore, invalidateContentCache, loadSiteData, resetDemoStore, saveContentKey } from "./content-store.js";
 import { demoContent } from "./fallback.js";
-
-/** Penyimpanan demo (hanya dipakai bila Telegraph belum dikonfigurasi). */
-function getDemoStore() {
-  if (!globalThis.__pmrDemoState) globalThis.__pmrDemoState = demoClone();
-  return globalThis.__pmrDemoState;
-}
 
 function verifyPin(request, env) {
   const pinHeader = request?.headers?.get("X-Admin-Pin") || "";
@@ -181,10 +175,10 @@ export async function handleAdminRequest(context, subPath) {
 
   /* --------------------------- POST /api/admin/reset --------------------------- */
   if (action === "reset" && request.method === "POST") {
-    globalThis.__pmrDemoState = demoClone();
+    const store = resetDemoStore();
 
     if (!client) {
-      return json({ ok: true, persisted: false, demoMode: true, message: "Data demo berhasil direset ke bawaan.", data: globalThis.__pmrDemoState }, 200, request);
+      return json({ ok: true, persisted: false, demoMode: true, message: "Data demo berhasil direset ke bawaan.", data: store }, 200, request);
     }
     try {
       // Reset seluruh bagian site_content (6 penulisan) — hemat kuota mutasi Telegraph.

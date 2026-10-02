@@ -24,6 +24,22 @@ export function demoClone() {
   return JSON.parse(JSON.stringify(demoContent));
 }
 
+/**
+ * Penyimpanan demo bersama (hanya saat Telegraph belum dikonfigurasi).
+ * Dipakai endpoint admin untuk menulis dan endpoint publik untuk membaca,
+ * supaya perubahan di Portal Admin langsung terlihat pada pratinjau sesi ini.
+ */
+export function getDemoStore() {
+  if (!globalThis.__pmrDemoState) globalThis.__pmrDemoState = demoClone();
+  return globalThis.__pmrDemoState;
+}
+
+export function resetDemoStore() {
+  globalThis.__pmrDemoState = demoClone();
+  invalidateContentCache();
+  return globalThis.__pmrDemoState;
+}
+
 export function invalidateContentCache() {
   readCache = { at: 0, token: "", payload: null };
 }
@@ -39,7 +55,7 @@ export function getClient(env) {
  */
 export async function loadSiteData(env, { force = false, includeDrafts = false } = {}) {
   const client = getClient(env);
-  if (!client) return { source: "demo", configured: false, data: demoClone() };
+  if (!client) return { source: "demo", configured: false, data: getDemoStore() };
 
   const token = `${client.baseUrl}|${includeDrafts ? "admin" : "public"}`;
   const cacheUsable = !includeDrafts && !force && readCache.payload && readCache.token === token && Date.now() - readCache.at < READ_CACHE_MS;
@@ -96,7 +112,7 @@ export async function loadSiteData(env, { force = false, includeDrafts = false }
     return payload;
   } catch (cause) {
     console.error("Telegraph read failed", cause?.code || cause?.message);
-    return { source: "demo", configured: true, degraded: true, error: cause?.code || "read_failed", data: demoClone() };
+    return { source: "demo", configured: true, degraded: true, error: cause?.code || "read_failed", data: getDemoStore() };
   }
 }
 

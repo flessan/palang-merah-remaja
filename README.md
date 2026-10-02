@@ -4,14 +4,14 @@ Situs resmi ekstrakurikuler Palang Merah Remaja (PMR) Wira SMKN 4 Banjarmasin.
 Situs publik tetap statis dan cepat; konten dibaca dari Cloudflare Pages Functions
 yang terhubung ke **Telegraph Cloud** (document API + object storage).
 
-Desain antarmuka memakai gaya **Paper-Cut Scrapbook (kolase digital)**: ilusi
-tumpukan kertas, bentuk guntingan asimetris, tekstur kertas daur ulang, dan
-aksen coretan spidol — tanpa mengubah susunan/tata letak halaman.
+Desain antarmuka memakai gaya **Playful & Clean**: tombol chunky yang memantul
+saat ditekan, permukaan bersih tanpa tekstur, sudut membulat konsisten, dan warna
+ceria. Mode gelap memakai palet navy dalam dengan aksen yang sama cerahnya.
 
 ## Fitur
 
 - React + Vite single-page navigation dengan URL `?tab=` yang tetap bisa di-bookmark.
-- Mode terang/gelap (palet kertas kraft ↔ papan gabus malam) dengan preferensi tersimpan.
+- Mode terang/gelap (putih bersih ↔ navy dalam) dengan preferensi tersimpan; keduanya dirancang setara, bukan sekadar inversi.
 - Menu hamburger mobile: drawer geser penuh dengan ikon, deskripsi, toggle tema, dan tautan cepat.
 - Halaman **Sejarah & Pendiri** khusus (`?tab=sejarah`): lini masa, tingkatan PMR (Mula/Madya/Wira), dan para pendiri/penerus organisasi.
 - Beranda dengan kabar terbaru, agenda, statistik, jadwal jaga adil (UKS & lapangan), dan banner UKS.
@@ -19,7 +19,7 @@ aksen coretan spidol — tanpa mengubah susunan/tata letak halaman.
 - EduScope: panduan interaktif P3K (mimisan, pingsan, luka bakar, tersedak) dengan disclaimer medis.
 - Galeri responsif dengan pencarian, filter kategori, lightbox album, dan navigasi keyboard.
 - Halaman kontak informatif: jam sekretariat, info keanggotaan, dan tombol langsung WhatsApp/Email/Instagram.
-- Portal Admin (PIN): kelola kabar, agenda, galeri, jadwal jaga adil, struktur organisasi, statistik, panduan P3K, kontak, dan stok obat UKS — lengkap dengan backup/restore JSON dan unggah foto.
+- Portal Admin (PIN): kelola kabar, agenda, galeri, **jadwal shift manual**, struktur organisasi, statistik, panduan P3K, kontak, dan stok obat UKS — lengkap dengan backup/restore JSON dan unggah foto.
 - Fallback demo otomatis saat Telegraph Cloud belum dikonfigurasi sehingga frontend tetap dapat dipreview.
 
 ## Perubahan produk (Juli 2026)
@@ -109,27 +109,60 @@ Admin (header `X-Admin-Pin`, default demo `2026`):
 
 Seluruh gaya hidup di `src/styles.css`, dibagi menjadi tiga lapis:
 
-1. **Design tokens** (`:root` / `[data-theme='dark']`) — palet kertas, bayangan
-   berlapis, token bentuk guntingan (`--cut`, `--cut-a..c`, `--cut-pill`), dan
-   tekstur organik berupa SVG inline (`--tex-grain`, `--tex-fiber`, `--tex-watercolor`).
-2. **Aturan komponen asli** — struktur grid/flex halaman, tidak diubah.
-3. **Lapisan *skin* Paper-Cut Scrapbook** (bagian bernomor 1–16 di akhir berkas) —
-   hanya menyentuh warna, latar, bayangan, bentuk potongan, dan tipografi.
-   Properti tata letak sengaja tidak disentuh agar susunan halaman tetap sama.
+1. **Design tokens** (`:root` / `[data-theme='dark']`) — palet warna, bayangan,
+   radius (`--cut*` kini berupa nilai sudut membulat 12–24px, bukan bentuk
+   guntingan), gerak (`--bounce`), dan tipografi.
+2. **Aturan komponen** — struktur grid/flex halaman.
+3. **Lapisan *skin* Playful UI** (bagian bernomor 1–18 di akhir berkas) — warna,
+   bayangan, bentuk sudut, tipografi, dan gerak. Properti tata letak tidak
+   disentuh agar susunan halaman tetap sama.
 
-Tipografi: `Baloo 2` (judul), `Nunito` (isi), `Caveat` (tulisan tangan/label),
-`DM Mono` (angka & meta).
+### Tombol playful
+
+Setiap tombol memakai pola "chunky 3D": dasar solid 4px (`0 4px 0 …`) yang
+membuat tombol tampak seperti kancing, lalu:
+
+- **Hover** — terangkat 2px, dasar menebal jadi 6px, ikon membesar & miring.
+- **Klik** — tertekan 3px dengan dasar menyusut jadi 1px (efek ditekan).
+- Varian warna: `button-primary` (merah), `button-yellow`, `button-wa` (hijau),
+  `button-ghost` (outline), `button-dark`. Setiap varian punya bayangan dasar
+  yang disetel untuk mode gelap agar tidak "menyala" berlebihan.
+
+Komponen lain yang ikut memantul: tab navigasi (pil), pill filter, sub-nav admin,
+dropdown petugas, tombol ikon (tema/menu/tutup), dan tombol kembali ke atas.
+Semua gerakan dinonaktifkan otomatis saat `prefers-reduced-motion: reduce`.
+
+### Mode gelap
+
+Mode gelap bukan inversi otomatis: latarnya navy dalam (`--paper: #0f1220`)
+dengan permukaan kartu yang lebih terang satu tingkat, aksen warna diterangkan
+agar tetap kontras, dan bayangan 3D tombol diganti dasar hitam. Bagian 17 di
+akhir `src/styles.css` mengatur penyesuaian khusus: header, pita pengumuman,
+tabel admin, dropdown, chip berwarna lembut, panel gelap, dan kartu jadwal.
+
+### Jadwal shift (manual, bukan otomatis)
+
+Modul **Jadwal Shift** di Portal Admin disusun manual:
+
+- Tambah baris shift lewat pemilih tanggal, atau tekan **Buat Kerangka Hari Kerja**
+  untuk menyiapkan baris Senin–Jumat (UKS) / Senin (lapangan) tanpa mengisi nama.
+- Setiap shift diisi lewat **dropdown yang bisa dicari**, berisi daftar anggota
+  dari modul Organisasi & Divisi. Anggota yang sudah masuk shift itu otomatis
+  tidak ditawarkan lagi; nama di luar daftar tetap bisa ditambahkan manual.
+- Petugas bisa diganti, dihapus, atau barisnya dihapus seluruhnya.
 
 ## Pengujian smoke
 
 Smoke test E2E tanpa browser (berbasis jsdom) menjalankan bundle produksi asli
 lalu menstimulasikan interaksi pengguna: navigasi seluruh tab, halaman Sejarah,
 drawer hamburger, modal album/panduan, toggle tema gelap, tombol kembali ke atas,
-login Portal Admin (PIN demo `2026`), pembukaan semua modal admin, hingga kontrak
-endpoint Pages Functions — termasuk pemeriksaan tidak adanya sisa Neon/SQL/ORM.
+login Portal Admin (PIN demo `2026`), penyusunan jadwal shift manual (tambah baris,
+dropdown pencarian anggota, hapus petugas/shift), pembukaan semua modal admin,
+hingga kontrak endpoint Pages Functions — termasuk pemeriksaan tidak adanya sisa
+Neon/SQL/ORM dan tidak adanya lagi fungsi "jadwal jaga adil" otomatis.
 
 ```bash
-npm run test:smoke   # build + 108 pemeriksaan otomatis
+npm run test:smoke   # build + 125 pemeriksaan otomatis
 ```
 
 ## Deploy ke Cloudflare Pages

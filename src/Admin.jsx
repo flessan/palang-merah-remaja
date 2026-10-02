@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Accessibility,
   ArrowRight,
@@ -6,6 +6,7 @@ import {
   Bell,
   CalendarDays,
   Check,
+  ChevronDown,
   CircleAlert,
   Clock3,
   Copy,
@@ -428,7 +429,7 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
           { id: "overview", label: "Dashboard", icon: "award" },
           { id: "announcements", label: "Kabar & Berita", icon: "megaphone", count: data.announcements?.length },
           { id: "events", label: "Agenda Kegiatan", icon: "calendar", count: data.events?.length },
-          { id: "roster", label: "Jadwal Jaga Adil", icon: "shield-check", highlight: true },
+          { id: "roster", label: "Jadwal Shift", icon: "shield-check" },
           { id: "gallery", label: "Galeri Album", icon: "flame", count: data.gallery?.length },
           { id: "org", label: "Organisasi & Divisi", icon: "users-round" },
           { id: "content", label: "Pengaturan & P3K", icon: "shield-check" },
@@ -495,7 +496,7 @@ export function AdminPanel({ showToast, onRefreshPublic }) {
                   id: "news-roster-" + Date.now(),
                   category: "Jadwal Tugas",
                   title: `Jadwal Jaga UKS & Lapangan - ${newRoster.bulan_label}`,
-                  excerpt: `Berikut pembagian tugas penjagaan Ruang UKS (Senin–Jumat) dan piket lapangan upacara (Senin) bagi seluruh anggota aktif periode ${newRoster.bulan_label}.`,
+                  excerpt: `Berikut pembagian tugas penjagaan Ruang UKS (Senin–Jumat) dan piket lapangan upacara (Senin) bagi anggota aktif periode ${newRoster.bulan_label}.`,
                   date_label: new Date().toLocaleDateString("id-ID"),
                   image_url: "/gudang/gallery/latgab/WhatsApp_Image_2026-02-02_at_21.17.48_1_elixib.avif",
                   is_published: true
@@ -659,7 +660,7 @@ function OverviewTab({ data, healthStatus, setActiveTab, setEditingNews, setEdit
           <Plus size={15} /> Buat Album Galeri
         </button>
         <button className="button button-ghost button-sm" onClick={() => setActiveTab("roster")}>
-          <ShieldCheck size={15} /> Generate Jadwal Jaga
+          <ShieldCheck size={15} /> Susun Jadwal Shift
         </button>
       </div>
 
@@ -902,161 +903,298 @@ function EventsTab({ list, search, setSearch, filter, setFilter, onOpenCreate, o
   );
 }
 
-// Sub-Tab: Jadwal Jaga Adil (UKS & Lapangan)
-function RosterTab({ roster, org, onSaveRoster, showToast }) {
-  const allMembers = useMemo(() => {
-    const list = new Set();
-    (org?.divisions || []).forEach((div) => {
-      (div.anggota || []).forEach((m) => list.add(m));
-    });
-    (org?.leaders || []).forEach((l) => {
-      if (l.nama && !l.role?.toLowerCase().includes("pembina")) list.add(l.nama);
-    });
-    return Array.from(list);
-  }, [org]);
+// Sub-Tab: Jadwal Shift Standar (UKS & Lapangan)
+//
+// Penyusunan jadwal dilakukan manual: admin menyusun baris shift sendiri lalu
+// memilih petugas dari daftar anggota lewat dropdown yang bisa dicari.
+// Tidak ada lagi pengacakan/"jadwal jaga adil" otomatis.
 
-  const [bulanLabel, setBulanLabel] = useState(roster?.bulan_label || "Agustus 2026");
-  const [uksPerShift, setUksPerShift] = useState(roster?.petugas_per_shift_uks || 2);
-  const [lapanganPerShift, setLapanganPerShift] = useState(roster?.petugas_per_shift_lapangan || 4);
-  const [autoAnnounce, setAutoAnnounce] = useState(true);
-  const [currentRoster, setCurrentRoster] = useState(roster || {
-    periode: "Agustus 2026",
-    bulan_label: "Agustus 2026",
-    petugas_per_shift_uks: 2,
-    petugas_per_shift_lapangan: 4,
-    uks_schedule: [],
-    lapangan_schedule: [],
-    summary_counts: {},
-    is_published: true
-  });
-  const [memberText, setMemberText] = useState(() => (allMembers.length ? allMembers.join("\n") : "Syifa Maurinjia\nNazma Az Zahra\nNahdhah\nAndi Nabilla Ramadani\nMaulidia Hayuningdiah\nNaufa Azmi Khairizqa\nMelsia Oktavia\nEva Regina Putri Riyanti\nLisa Erfina\nNaylah Azkiya\nRama\nAlia Rahmawati\nFerdi Herlino\nAlmira Fakhriah Hasan\nA. Ustman Abdullah\nKirani\nHalissa Azzahra\nDelya Ananda\nLionel Abdi Darma W.\nSelviana Dewi\nMuhammad Sultan Ariady\nNur Aleesya Nashirah\nNabila Rosydah Zahro\nZahrah Fitri Aisy\nWulandari\nLietya Aisya\nFiry al Humairoh Rahmah\nSofha Raihana Kamelia"));
-  const [activeSubView, setActiveSubView] = useState("uks"); // 'uks' or 'lapangan'
-  const [isSaving, setIsSaving] = useState(false);
+const MONTH_NAMES = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+/** "2026-08-14" → { tanggal: "Jumat, 14 Agustus 2026", hari: "Jumat" } */
+function describeDate(iso) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!match) return null;
+  const [, y, m, d] = match;
+  const date = new Date(Number(y), Number(m) - 1, Number(d));
+  return {
+    iso,
+    tanggal: `${DAY_NAMES[date.getDay()]}, ${Number(d)} ${MONTH_NAMES[date.getMonth()]} ${y}`,
+    hari: DAY_NAMES[date.getDay()],
+  };
+}
+
+/** Nama hari dari label tanggal lama, mis. "Senin, 13 Juli 2026" → "Senin". */
+function dayFromLabel(label) {
+  const found = DAY_NAMES.find((name) => String(label || "").trim().toLowerCase().startsWith(name.toLowerCase()));
+  return found || "Senin";
+}
+
+function isoFromLabel(label) {
+  const text = String(label || "");
+  const day = /\b(\d{1,2})\b/.exec(text);
+  const year = /\b(20\d{2})\b/.exec(text);
+  const monthIndex = MONTH_NAMES.findIndex((name) => text.toLowerCase().includes(name.toLowerCase()));
+  if (!day || !year || monthIndex < 0) return "";
+  return `${year[1]}-${pad2(monthIndex + 1)}-${pad2(Number(day[1]))}`;
+}
+
+function emptyShift(iso) {
+  const described = describeDate(iso);
+  return described
+    ? { tanggal: described.tanggal, hari: described.hari, iso, petugas: [] }
+    : { tanggal: "", hari: "Senin", iso: "", petugas: [] };
+}
+
+/**
+ * Dropdown petugas: bisa dicari, muncul dari daftar anggota organisasi.
+ * Anggota yang sudah terjadwal di shift ini tidak ditawarkan lagi, dan nama
+ * di luar daftar tetap bisa ditambahkan manual sebagai opsi terakhir.
+ */
+function MemberPicker({ members, selected = [], onPick, label = "Tambah petugas" }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef(null);
+
+  const chosen = useMemo(() => new Set(selected.map((name) => String(name).toLowerCase())), [selected]);
+  const options = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return members
+      .filter((name) => !chosen.has(String(name).toLowerCase()))
+      .filter((name) => !needle || String(name).toLowerCase().includes(needle))
+      .slice(0, 40);
+  }, [members, chosen, query]);
+
+  // Tutup dropdown saat klik di luar atau menekan Escape.
   useEffect(() => {
-    if (allMembers.length > 0 && (!memberText || !memberText.trim())) {
-      setMemberText(allMembers.join("\n"));
-    }
-  }, [allMembers]);
-
-  const generateFairSchedule = () => {
-    const members = memberText.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    if (!members.length) {
-      showToast("Daftar anggota tidak boleh kosong!", "error");
-      return;
-    }
-
-    // Determine target month and year from label or default August 2026
-    let year = 2026;
-    let monthIndex = 7; // August is 7 (0-indexed)
-    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-    monthNames.forEach((m, idx) => {
-      if (bulanLabel.toLowerCase().includes(m.toLowerCase())) monthIndex = idx;
-    });
-    const yearMatch = bulanLabel.match(/\b(20\d\d)\b/);
-    if (yearMatch) year = parseInt(yearMatch[1], 10);
-
-    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-    const uksDays = [];
-    const lapanganDays = [];
-    const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dt = new Date(year, monthIndex, d);
-      const dayNum = dt.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
-      const tglStr = `${dayNames[dayNum]}, ${d} ${monthNames[monthIndex]} ${year}`;
-      if (dayNum >= 1 && dayNum <= 5) {
-        uksDays.push({ tanggal: tglStr, hari: dayNames[dayNum], petugas: [] });
-      }
-      if (dayNum === 1) {
-        lapanganDays.push({ tanggal: tglStr, hari: "Senin", petugas: [] });
-      }
-    }
-
-    // Initialize shift counts
-    const counts = {};
-    const lastDayIdx = {};
-    members.forEach(m => {
-      counts[m] = { uks: 0, lapangan: 0, total: 0 };
-      lastDayIdx[m] = -10;
-    });
-
-    // 1. Allocate Lapangan (Every Monday flag ceremony)
-    lapanganDays.forEach((ld) => {
-      const pool = [...members].sort((a, b) => {
-        if (counts[a].lapangan !== counts[b].lapangan) return counts[a].lapangan - counts[b].lapangan;
-        if (counts[a].total !== counts[b].total) return counts[a].total - counts[b].total;
-        return Math.random() - 0.5;
-      });
-      const selected = pool.slice(0, Math.min(lapanganPerShift, pool.length));
-      ld.petugas = selected;
-      selected.forEach(m => {
-        counts[m].lapangan++;
-        counts[m].total++;
-      });
-    });
-
-    // 2. Allocate UKS (Monday - Friday)
-    uksDays.forEach((ud, dIdx) => {
-      const isMon = ud.hari === "Senin";
-      const monDuty = isMon ? (lapanganDays.find(l => l.tanggal === ud.tanggal)?.petugas || []) : [];
-
-      const pool = [...members].sort((a, b) => {
-        // Heavy penalty if already guarding Lapangan on this exact same Monday
-        const aMon = monDuty.includes(a) ? 1 : 0;
-        const bMon = monDuty.includes(b) ? 1 : 0;
-        if (aMon !== bMon) return aMon - bMon;
-
-        // Heavy penalty if guarded UKS yesterday
-        const aYest = (dIdx - lastDayIdx[a] === 1) ? 1 : 0;
-        const bYest = (dIdx - lastDayIdx[b] === 1) ? 1 : 0;
-        if (aYest !== bYest) return aYest - bYest;
-
-        // Sort by least UKS shifts then total shifts
-        if (counts[a].uks !== counts[b].uks) return counts[a].uks - counts[b].uks;
-        if (counts[a].total !== counts[b].total) return counts[a].total - counts[b].total;
-        return Math.random() - 0.5;
-      });
-
-      const selected = pool.slice(0, Math.min(uksPerShift, pool.length));
-      ud.petugas = selected;
-      selected.forEach(m => {
-        counts[m].uks++;
-        counts[m].total++;
-        lastDayIdx[m] = dIdx;
-      });
-    });
-
-    const newRosterObj = {
-      periode: bulanLabel,
-      bulan_label: bulanLabel,
-      keterangan: `Jadwal resmi penjagaan Ruang UKS (Senin–Jumat) dan piket lapangan upacara (Setiap Senin) untuk seluruh anggota aktif PMR Wira SMKN 4 Banjarmasin periode ${bulanLabel}.`,
-      petugas_per_shift_uks: Number(uksPerShift) || 2,
-      petugas_per_shift_lapangan: Number(lapanganPerShift) || 4,
-      uks_schedule: uksDays,
-      lapangan_schedule: lapanganDays,
-      summary_counts: counts,
-      is_published: true,
-      updated_at: new Date().toISOString()
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
     };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
 
-    setCurrentRoster(newRosterObj);
-    showToast(`Jadwal adil untuk ${bulanLabel} berhasil dibentuk (${uksDays.length} shift UKS, ${lapanganDays.length} shift Lapangan)!`);
+  const pick = (name) => {
+    onPick(name);
+    setQuery("");
+    setOpen(false);
   };
 
-  const handleSwapPetugas = (scheduleKey, shiftIdx, memberIdx, newName) => {
-    const updatedSchedule = [...(currentRoster[scheduleKey] || [])];
-    const shiftPetugas = [...updatedSchedule[shiftIdx].petugas];
-    shiftPetugas[memberIdx] = newName;
-    updatedSchedule[shiftIdx] = { ...updatedSchedule[shiftIdx], petugas: shiftPetugas };
-    setCurrentRoster({ ...currentRoster, [scheduleKey]: updatedSchedule });
+  const custom = query.trim();
+
+  return (
+    <div className="member-picker" ref={rootRef}>
+      <button
+        type="button"
+        className={`mp-trigger ${open ? "is-open" : ""}`}
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <Plus size={14} />
+        <span>{label}</span>
+        <ChevronDown size={14} className="mp-caret" />
+      </button>
+
+      {open && (
+        <div className="mp-menu" role="listbox">
+          <div className="mp-search">
+            <Search size={15} />
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari nama anggota..."
+              aria-label="Cari nama anggota"
+            />
+            {query && (
+              <button type="button" className="mp-clear" onClick={() => setQuery("")} aria-label="Bersihkan pencarian">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <div className="mp-list">
+            {options.map((name) => (
+              <button type="button" className="mp-option" key={name} onClick={() => pick(name)} role="option" aria-selected="false">
+                <span className="mp-avatar">{name.trim().charAt(0).toUpperCase()}</span>
+                <span>{name}</span>
+                <Check size={14} className="mp-check" />
+              </button>
+            ))}
+
+            {!options.length && (
+              <p className="mp-empty">
+                {members.length && !custom ? "Semua anggota pada daftar sudah masuk shift ini." : "Nama tidak ditemukan pada daftar anggota."}
+              </p>
+            )}
+
+            {custom && !members.some((name) => String(name).toLowerCase() === custom.toLowerCase()) && (
+              <button type="button" className="mp-option mp-option-new" onClick={() => pick(custom)} role="option" aria-selected="false">
+                <span className="mp-avatar">+</span>
+                <span>Tambah manual: <strong>{custom}</strong></span>
+              </button>
+            )}
+          </div>
+
+          <div className="mp-foot">
+            <span>{members.length} anggota pada daftar organisasi</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RosterTab({ roster, org, onSaveRoster, showToast }) {
+  // Daftar anggota aktif: gabungan seluruh divisi + pengurus inti (tanpa pembina).
+  const allMembers = useMemo(() => {
+    const list = new Set();
+    (org?.leaders || []).forEach((leader) => {
+      if (leader?.nama && !/pembina/i.test(leader.role || "")) list.add(leader.nama);
+    });
+    (org?.advisory || []).forEach((person) => {
+      if (person?.nama && !/pembina/i.test(person.jabatan || person.role || "")) list.add(person.nama);
+    });
+    (org?.divisions || []).forEach((division) => {
+      (division?.anggota || []).forEach((member) => member && list.add(member));
+    });
+    return Array.from(list).sort((a, b) => a.localeCompare(b, "id"));
+  }, [org]);
+
+  const [meta, setMeta] = useState({
+    bulan_label: roster?.bulan_label || `${MONTH_NAMES[new Date().getMonth()]} ${new Date().getFullYear()}`,
+    keterangan: roster?.keterangan || "Jadwal penjagaan Ruang UKS (Senin–Jumat) dan piket lapangan upacara (Senin) untuk anggota aktif PMR Wira SMKN 4 Banjarmasin.",
+    is_published: roster?.is_published !== false,
+  });
+  const [uksSchedule, setUksSchedule] = useState(() => (roster?.uks_schedule || []).map((shift) => ({ ...shift, petugas: shift.petugas || [] })));
+  const [lapanganSchedule, setLapanganSchedule] = useState(() => (roster?.lapangan_schedule || []).map((shift) => ({ ...shift, petugas: shift.petugas || [] })));
+  const [activeSubView, setActiveSubView] = useState("uks");
+  const [autoAnnounce, setAutoAnnounce] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [newDate, setNewDate] = useState({ uks: "", lapangan: "" });
+
+  const schedule = activeSubView === "uks" ? uksSchedule : lapanganSchedule;
+  const setSchedule = activeSubView === "uks" ? setUksSchedule : setLapanganSchedule;
+  const perShift = activeSubView === "uks" ? roster?.petugas_per_shift_uks : roster?.petugas_per_shift_lapangan;
+
+  /* ---------------------- aksi penyuntingan manual ---------------------- */
+
+  const updateShift = (index, patch) => {
+    setSchedule((list) => list.map((shift, i) => (i === index ? { ...shift, ...patch } : shift)));
+  };
+
+  const addShift = (iso) => {
+    const described = describeDate(iso);
+    if (!described) {
+      showToast("Pilih tanggal shift terlebih dahulu.", "error");
+      return;
+    }
+    if (schedule.some((shift) => shift.iso === iso)) {
+      showToast("Tanggal itu sudah ada pada jadwal.", "error");
+      return;
+    }
+    const next = [...schedule, { tanggal: described.tanggal, hari: described.hari, iso, petugas: [] }];
+    next.sort((a, b) => String(a.iso || isoFromLabel(a.tanggal)).localeCompare(String(b.iso || isoFromLabel(b.tanggal))));
+    setSchedule(next);
+    setNewDate((value) => ({ ...value, [activeSubView]: "" }));
+  };
+
+  const removeShift = (index) => {
+    setSchedule((list) => list.filter((_, i) => i !== index));
+  };
+
+  const changeShiftDate = (index, iso) => {
+    const described = describeDate(iso);
+    if (!described) return;
+    updateShift(index, { iso, tanggal: described.tanggal, hari: described.hari });
+  };
+
+  const addPetugas = (index, name) => {
+    setSchedule((list) => list.map((shift, i) => (i === index ? { ...shift, petugas: [...(shift.petugas || []), name] } : shift)));
+  };
+
+  const removePetugas = (index, memberIndex) => {
+    setSchedule((list) =>
+      list.map((shift, i) => (i === index ? { ...shift, petugas: (shift.petugas || []).filter((_, m) => m !== memberIndex) } : shift)),
+    );
+  };
+
+  const replacePetugas = (index, memberIndex, name) => {
+    setSchedule((list) =>
+      list.map((shift, i) =>
+        i === index ? { ...shift, petugas: (shift.petugas || []).map((current, m) => (m === memberIndex ? name : current)) } : shift,
+      ),
+    );
+  };
+
+  /** Kerangka hari kerja kosong (tanpa penugasan otomatis) agar penyusunan lebih cepat. */
+  const buildMonthSkeleton = () => {
+    let year = new Date().getFullYear();
+    let monthIndex = new Date().getMonth();
+    const yearMatch = /\b(20\d{2})\b/.exec(meta.bulan_label);
+    if (yearMatch) year = Number(yearMatch[1]);
+    const foundMonth = MONTH_NAMES.findIndex((name) => meta.bulan_label.toLowerCase().includes(name.toLowerCase()));
+    if (foundMonth >= 0) monthIndex = foundMonth;
+
+    const days = new Date(year, monthIndex + 1, 0).getDate();
+    const rows = [];
+    for (let day = 1; day <= days; day += 1) {
+      const date = new Date(year, monthIndex, day);
+      const weekday = date.getDay();
+      const isWorkday = weekday >= 1 && weekday <= 5;
+      const isMonday = weekday === 1;
+      if (!isWorkday && !isMonday) continue;
+      const iso = `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+      rows.push({ iso, ...emptyShift(iso), petugas: [] });
+    }
+
+    if (activeSubView === "uks") {
+      setUksSchedule(rows);
+      showToast(`Kerangka ${rows.length} hari kerja UKS (${meta.bulan_label}) dibuat. Silakan pilih petugas per hari.`);
+    } else {
+      const mondays = rows.filter((row) => row.hari === "Senin");
+      setLapanganSchedule(mondays);
+      showToast(`Kerangka ${mondays.length} hari Senin piket lapangan (${meta.bulan_label}) dibuat. Silakan pilih petugas.`);
+    }
+  };
+
+  const clearSchedule = () => {
+    if (!window.confirm(`Kosongkan seluruh baris jadwal ${activeSubView === "uks" ? "Ruang UKS" : "lapangan upacara"}?`)) return;
+    setSchedule([]);
   };
 
   const handleSaveAndPublish = async () => {
+    const buildRows = (list) =>
+      list.map((shift) => ({ tanggal: shift.tanggal, hari: shift.hari, petugas: (shift.petugas || []).filter(Boolean) }));
+    const payload = {
+      periode: meta.bulan_label,
+      bulan_label: meta.bulan_label,
+      keterangan: meta.keterangan,
+      petugas_per_shift_uks: Number(roster?.petugas_per_shift_uks) || 1,
+      petugas_per_shift_lapangan: Number(roster?.petugas_per_shift_lapangan) || 8,
+      uks_schedule: buildRows(uksSchedule),
+      lapangan_schedule: buildRows(lapanganSchedule),
+      is_published: meta.is_published,
+      updated_at: new Date().toISOString(),
+    };
     try {
       setIsSaving(true);
-      await onSaveRoster(currentRoster, autoAnnounce);
-      showToast("Jadwal jaga berhasil disimpan dan diterbitkan ke website!");
+      await onSaveRoster(payload, autoAnnounce);
+      showToast("Jadwal shift berhasil disimpan dan diterbitkan ke website!");
     } catch (err) {
       showToast(err.message || "Gagal menyimpan jadwal.", "error");
     } finally {
@@ -1065,197 +1203,190 @@ function RosterTab({ roster, org, onSaveRoster, showToast }) {
   };
 
   const formatAdminWA = (viewType) => {
-    const uksList = currentRoster.uks_schedule || [];
-    const lapList = currentRoster.lapangan_schedule || [];
     const baseUrl = window.location.origin || "https://pmr-wira-smkn4.pages.dev";
-
     if (viewType === "uks") {
-      let titleRange = "13-17 Juli 2026";
-      if (uksList.length > 0) {
-        const firstTgl = uksList[0].tanggal.replace(/^[A-Za-z]+,\s*/, "");
-        const fifthTgl = uksList[Math.min(4, uksList.length - 1)].tanggal.replace(/^[A-Za-z]+,\s*/, "");
-        const firstNum = firstTgl.split(" ")[0];
-        titleRange = `${firstNum}-${fifthTgl}`;
+      const list = uksSchedule.slice(0, 5);
+      let range = meta.bulan_label;
+      if (list.length) {
+        range = `${String(list[0].tanggal).replace(/^[A-Za-z]+,\s*/, "")} – ${String(list[list.length - 1].tanggal).replace(/^[A-Za-z]+,\s*/, "")}`;
       }
-      let text = `*Jadwal Piket Jaga UKS Tanggal ${titleRange}*\n`;
-      uksList.slice(0, 5).forEach((item) => {
+      let text = `*Jadwal Piket Jaga UKS ${range}*\n`;
+      list.forEach((item) => {
         text += `\n${item.tanggal}\n\n`;
-        (item.petugas || []).forEach((nama) => {
-          text += `* ${nama}\n`;
-        });
+        (item.petugas || []).forEach((nama) => { text += `* ${nama}\n`; });
       });
-      text += `\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
-      return text;
-    } else {
-      const nextMonday = lapList[0] || { tanggal: "Senin, 13 Juli 2026", petugas: [] };
-      let text = `*Jadwal Jaga Upacara ${nextMonday.tanggal}*\n\n`;
-      (nextMonday.petugas || []).forEach((nama) => {
-        text += `* ${nama}\n`;
-      });
-      text += `\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
-      return text;
+      return `${text}\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
     }
+    const nextMonday = lapanganSchedule[0] || { tanggal: "Belum dijadwalkan", petugas: [] };
+    let text = `*Jadwal Jaga Upacara ${nextMonday.tanggal}*\n\n`;
+    (nextMonday.petugas || []).forEach((nama) => { text += `* ${nama}\n`; });
+    return `${text}\nCek jadwal lengkap dan live update di:\n${baseUrl}?tab=beranda`;
   };
 
   const handleAdminShareWA = () => {
-    const text = formatAdminWA(activeSubView);
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(formatAdminWA(activeSubView))}`, "_blank");
   };
 
   const handleAdminCopyText = () => {
     const text = formatAdminWA(activeSubView);
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
-      showToast("Teks jadwal tanpa emoji & link berhasil disalin! Siap ditempel ke WA.");
+      showToast("Teks jadwal berhasil disalin! Siap ditempel ke WhatsApp.");
     } else {
       prompt("Salin teks jadwal berikut:", text);
     }
   };
 
-  // Check fairness difference
-  const countsArr = Object.values(currentRoster.summary_counts || {}).map(c => c.total || 0);
-  const maxShift = countsArr.length ? Math.max(...countsArr) : 0;
-  const minShift = countsArr.length ? Math.min(...countsArr) : 0;
-  const isFair = (maxShift - minShift) <= 1 && countsArr.length > 0;
+  const totalPetugas = schedule.reduce((sum, shift) => sum + (shift.petugas?.length || 0), 0);
 
   return (
     <div className="module-tab">
       <div className="module-header">
         <div>
-          <h2>Generator & Manajemen Jadwal Jaga Adil</h2>
-          <p>Bentuk pembagian tugas Ruang UKS (Senin–Jumat) dan Piket Lapangan Upacara (Senin) dengan distribusi otomatis merata bagi seluruh anggota.</p>
+          <h2>Manajemen Jadwal Shift</h2>
+          <p>Susun jadwal shift Ruang UKS dan piket lapangan secara manual: tentukan tanggalnya, lalu pilih petugas dari daftar anggota.</p>
         </div>
         <button className="button button-primary" onClick={handleSaveAndPublish} disabled={isSaving}>
-          {isSaving ? "Menyimpan..." : <>Simpan & Terbitkan Jadwal <Check size={16} /></>}
+          {isSaving ? "Menyimpan..." : <>Simpan &amp; Terbitkan Jadwal <Check size={16} /></>}
         </button>
       </div>
 
-      {/* Control Generator Box */}
+      {/* Pengaturan umum jadwal */}
       <div className="roster-control-card">
         <div className="rcc-head">
-          <h3><RotateCcw size={18} /> Pengaturan Algoritma Keadilan Shift</h3>
-          <button type="button" className="button button-ghost button-sm" onClick={() => setMemberText(allMembers.join("\n"))}>
-            <RefreshCw size={14} /> Reset Anggota dari Divisi ({allMembers.length} Orang)
-          </button>
+          <h3><CalendarDays size={18} /> Pengaturan Jadwal</h3>
+          <span className="rcc-summary">{schedule.length} shift · {totalPetugas} penugasan</span>
         </div>
+
         <div className="rcc-grid">
           <label className="field">
-            <span>Target Bulan & Tahun</span>
-            <input value={bulanLabel} onChange={(e) => setBulanLabel(e.target.value)} placeholder="Agustus 2026" />
+            <span>Periode Jadwal</span>
+            <input value={meta.bulan_label} onChange={(event) => setMeta({ ...meta, bulan_label: event.target.value })} placeholder="Agustus 2026" />
+          </label>
+          <label className="field field-wide">
+            <span>Keterangan Jadwal</span>
+            <input value={meta.keterangan} onChange={(event) => setMeta({ ...meta, keterangan: event.target.value })} placeholder="Jadwal resmi penjagaan Ruang UKS..." />
           </label>
           <label className="field">
-            <span>Petugas Jaga UKS (Senin–Jumat) per Hari</span>
-            <input type="number" min="1" max="6" value={uksPerShift} onChange={(e) => setUksPerShift(Number(e.target.value) || 2)} />
-          </label>
-          <label className="field">
-            <span>Petugas Jaga Lapangan (Senin) per Hari</span>
-            <input type="number" min="1" max="12" value={lapanganPerShift} onChange={(e) => setLapanganPerShift(Number(e.target.value) || 4)} />
+            <span>Status Terbit</span>
+            <select value={meta.is_published ? "terbit" : "draft"} onChange={(event) => setMeta({ ...meta, is_published: event.target.value === "terbit" })}>
+              <option value="terbit">Terbit (tampil di situs)</option>
+              <option value="draft">Draft (disembunyikan)</option>
+            </select>
           </label>
         </div>
-        <div className="rcc-members">
-          <span><strong>Daftar Seluruh Anggota Aktif untuk Diundi</strong> <small>(Satu nama per baris, dapat ditambah/diubah bebas):</small></span>
-          <textarea
-            rows="5"
-            value={memberText}
-            onChange={(e) => setMemberText(e.target.value)}
-            placeholder="Ketik nama-nama anggota di sini..."
-          />
-        </div>
+
         <div className="rcc-foot">
           <label className="field-checkbox">
-            <input type="checkbox" checked={autoAnnounce} onChange={(e) => setAutoAnnounce(e.target.checked)} />
-            <span>Otomatis buat & terbitkan pengumuman di Beranda ("Jadwal Jaga UKS & Lapangan - {bulanLabel}")</span>
+            <input type="checkbox" checked={autoAnnounce} onChange={(event) => setAutoAnnounce(event.target.checked)} />
+            <span>Buat pengumuman otomatis di Beranda saat jadwal disimpan</span>
           </label>
-          <button type="button" className="button button-yellow" onClick={generateFairSchedule}>
-            ⚡ Acak & Generate Jadwal Adil Sekarang
-          </button>
+          <div className="rcc-actions">
+            <button type="button" className="button button-yellow button-sm" onClick={buildMonthSkeleton}>
+              <CalendarDays size={14} /> Buat Kerangka Hari Kerja
+            </button>
+            <button type="button" className="button button-ghost button-sm" onClick={clearSchedule}>
+              <Trash2 size={14} /> Kosongkan
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Fairness Audit Summary */}
-      {Object.keys(currentRoster.summary_counts || {}).length > 0 && (
-        <div className="roster-audit-card">
-          <div className="audit-head">
-            <div className="ah-left">
-              <h4><ShieldCheck size={18} /> Audit Keadilan Distribusi Shift (`{currentRoster.bulan_label}`)</h4>
-              <p>Mengecek keseimbangan beban tugas tiap anggota agar tidak ada yang terbebani berlebihan.</p>
-            </div>
-            {isFair ? (
-              <span className="fair-badge"><Check size={14} /> 100% DISTRIBUSI ADIL (Selisih beban $\le 1$ shift)</span>
-            ) : (
-              <span className="fair-badge badge-warn"><CircleAlert size={14} /> Distribusi Normal (Selisih: {maxShift - minShift} shift)</span>
-            )}
-          </div>
-          <div className="audit-chips">
-            {Object.entries(currentRoster.summary_counts || {}).map(([nama, c]) => (
-              <div className="audit-chip" key={nama}>
-                <strong>{nama}</strong>
-                <span>UKS: {c.uks} · Lapangan: {c.lapangan} ➔ <b>Total: {c.total} shift</b></span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Roster Viewer & Editor */}
+      {/* Penyusun shift */}
       <div className="roster-schedule-section">
         <div className="rss-tabs">
-          <button
-            className={`rss-tab ${activeSubView === "uks" ? "active" : ""}`}
-            onClick={() => setActiveSubView("uks")}
-          >
-            <HeartPulse size={16} /> Jadwal Penjagaan Ruang UKS ({currentRoster.uks_schedule?.length || 0} Hari)
+          <button className={`rss-tab ${activeSubView === "uks" ? "active" : ""}`} onClick={() => setActiveSubView("uks")}>
+            <HeartPulse size={16} /> Ruang UKS ({uksSchedule.length} shift)
           </button>
-          <button
-            className={`rss-tab ${activeSubView === "lapangan" ? "active" : ""}`}
-            onClick={() => setActiveSubView("lapangan")}
-          >
-            <Award size={16} /> Jadwal Piket Lapangan Upacara ({currentRoster.lapangan_schedule?.length || 0} Hari Senin)
+          <button className={`rss-tab ${activeSubView === "lapangan" ? "active" : ""}`} onClick={() => setActiveSubView("lapangan")}>
+            <Award size={16} /> Lapangan Upacara ({lapanganSchedule.length} shift)
           </button>
+        </div>
+
+        <div className="roster-add-bar">
+          <label className="field">
+            <span>Tanggal shift baru ({activeSubView === "uks" ? "Senin–Jumat" : "umumnya Senin"})</span>
+            <input
+              type="date"
+              value={newDate[activeSubView]}
+              onChange={(event) => setNewDate({ ...newDate, [activeSubView]: event.target.value })}
+            />
+          </label>
+          <button type="button" className="button button-dark button-sm" onClick={() => addShift(newDate[activeSubView])}>
+            <Plus size={15} /> Tambah Baris Shift
+          </button>
+          <span className="roster-hint">
+            Tiap shift diisi lewat dropdown “Tambah petugas” yang bisa dicari dari daftar anggota organisasi.
+            {perShift ? ` Rekomendasi ${perShift} petugas per shift.` : ""}
+          </span>
         </div>
 
         <div className="wa-share-bar">
           <div className="wa-share-info">
             <MessageCircle size={18} />
-            <span>Bagikan jadwal {activeSubView === "uks" ? "Piket Jaga UKS" : "Jaga Upacara Senin"} ke WhatsApp (Format rapi tanpa emoji beserta tautan link):</span>
+            <span>Bagikan jadwal {activeSubView === "uks" ? "piket jaga UKS" : "jaga upacara Senin"} ke WhatsApp:</span>
           </div>
           <div className="wa-share-btns">
             <button type="button" className="button button-wa button-sm" onClick={handleAdminShareWA}>
               <Send size={14} /> Share ke WhatsApp
             </button>
             <button type="button" className="button button-ghost button-sm" onClick={handleAdminCopyText}>
-              <Copy size={14} /> Salin Teks & Link
+              <Copy size={14} /> Salin Teks &amp; Link
             </button>
           </div>
         </div>
 
         <div className="rss-list">
-          {(activeSubView === "uks" ? currentRoster.uks_schedule : currentRoster.lapangan_schedule)?.map((shift, shiftIdx) => (
-            <div className="rss-row" key={shiftIdx}>
+          {schedule.map((shift, shiftIdx) => (
+            <div className="rss-row" key={`${shift.iso || shift.tanggal}-${shiftIdx}`}>
               <div className="rss-date">
+                <input
+                  type="date"
+                  className="rss-date-input"
+                  value={shift.iso || isoFromLabel(shift.tanggal)}
+                  onChange={(event) => changeShiftDate(shiftIdx, event.target.value)}
+                  aria-label="Tanggal shift"
+                />
                 <strong>{shift.tanggal}</strong>
                 <span className="tag">{shift.hari}</span>
               </div>
+
               <div className="rss-petugas">
-                <span>Petugas Bertugas ({shift.petugas?.length || 0} Orang):</span>
+                <span>Petugas bertugas ({shift.petugas?.length || 0} orang):</span>
                 <div className="petugas-pills">
-                  {shift.petugas?.map((nama, memberIdx) => (
-                    <div className="petugas-pill" key={memberIdx}>
+                  {(shift.petugas || []).map((nama, memberIdx) => (
+                    <div className="petugas-pill" key={`${nama}-${memberIdx}`}>
                       <UserRound size={13} />
                       <input
                         value={nama}
-                        onChange={(e) => handleSwapPetugas(activeSubView, shiftIdx, memberIdx, e.target.value)}
-                        title="Klik untuk mengubah nama petugas jika izin/ganti"
+                        onChange={(event) => replacePetugas(shiftIdx, memberIdx, event.target.value)}
+                        title="Ubah nama petugas bila perlu"
+                        aria-label={`Petugas ${memberIdx + 1}`}
                       />
+                      <button type="button" className="petugas-remove" onClick={() => removePetugas(shiftIdx, memberIdx)} aria-label={`Hapus ${nama}`}>
+                        <X size={13} />
+                      </button>
                     </div>
                   ))}
+                  <MemberPicker
+                    members={allMembers}
+                    selected={shift.petugas || []}
+                    onPick={(name) => addPetugas(shiftIdx, name)}
+                    label="Tambah petugas"
+                  />
                 </div>
               </div>
+
+              <button type="button" className="rss-delete" onClick={() => removeShift(shiftIdx)} aria-label={`Hapus shift ${shift.tanggal}`}>
+                <Trash2 size={15} />
+              </button>
             </div>
           ))}
-          {(!currentRoster.uks_schedule?.length && !currentRoster.lapangan_schedule?.length) && (
-            <div className="empty-box"><p>Tekan tombol "⚡ Acak & Generate Jadwal Adil Sekarang" di atas untuk membentuk jadwal baru.</p></div>
+
+          {!schedule.length && (
+            <div className="empty-box">
+              <p>Belum ada baris shift. Tambahkan tanggal di atas, atau tekan “Buat Kerangka Hari Kerja” untuk menyiapkan baris kosong.</p>
+            </div>
           )}
         </div>
       </div>

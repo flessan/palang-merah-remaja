@@ -647,8 +647,8 @@ function PublicRosterModal({ roster, onClose }) {
       <div className="admin-modal modal-lg modal-card" role="dialog" aria-modal="true" aria-label="Jadwal lengkap jaga UKS dan piket lapangan">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">JADWAL ADIL PMR WIRA · {roster.bulan_label}</span>
-            <h2>Daftar Lengkap Shift Jaga UKS & Piket Lapangan</h2>
+            <span className="eyebrow">JADWAL SHIFT PMR WIRA · {roster.bulan_label}</span>
+            <h2>Jadwal Shift Ruang UKS &amp; Piket Lapangan</h2>
           </div>
           <button className="close-button" onClick={onClose} aria-label="Tutup"><X size={20} /></button>
         </div>
@@ -662,66 +662,45 @@ function PublicRosterModal({ roster, onClose }) {
             <button className={`rss-tab ${tab === "lapangan" ? "active" : ""}`} onClick={() => setTab("lapangan")}>
               🚩 Piket Lapangan Upacara (Setiap Senin)
             </button>
-            <button className={`rss-tab ${tab === "fairness" ? "active" : ""}`} onClick={() => setTab("fairness")}>
-              ⚖️ Bukti Keadilan Distribusi
-            </button>
           </div>
 
-          {tab !== "fairness" && (
-            <div className="wa-share-bar" style={{ margin: "6px 0" }}>
-              <div className="wa-share-info">
-                <MessageCircle size={18} />
-                <span style={{ color: "var(--red)" }}>Bagikan daftar {tab === "uks" ? "Piket Jaga UKS" : "Jaga Upacara"} ini ke WhatsApp (Format rapi + tautan resmi):</span>
-              </div>
-              <div className="wa-share-btns">
-                <button type="button" className="button button-wa button-sm" onClick={handleModalWA}>
-                  <Send size={14} /> Share ke WhatsApp
-                </button>
-                <button type="button" className="button button-sm" onClick={handleModalCopy}>
-                  <Copy size={14} /> Salin Teks & Link
-                </button>
-              </div>
+          <div className="wa-share-bar" style={{ margin: "6px 0" }}>
+            <div className="wa-share-info">
+              <MessageCircle size={18} />
+              <span>Bagikan daftar {tab === "uks" ? "piket jaga UKS" : "jaga upacara"} ini ke WhatsApp:</span>
             </div>
-          )}
+            <div className="wa-share-btns">
+              <button type="button" className="button button-wa button-sm" onClick={handleModalWA}>
+                <Send size={14} /> Share ke WhatsApp
+              </button>
+              <button type="button" className="button button-sm" onClick={handleModalCopy}>
+                <Copy size={14} /> Salin Teks & Link
+              </button>
+            </div>
+          </div>
 
           <div className="modal-scroll-area">
-            {tab !== "fairness" ? (
-              (tab === "uks" ? roster.uks_schedule : roster.lapangan_schedule)?.map((shift, sIdx) => (
-                <div className="rss-row" key={sIdx}>
-                  <div className="rss-date">
-                    <strong>{shift.tanggal}</strong>
-                    <span className="tag">{shift.hari}</span>
-                  </div>
-                  <div className="rss-petugas">
-                    <span>Petugas Bertugas:</span>
-                    <div className="petugas-pills">
-                      {shift.petugas?.map((nama, mi) => (
-                        <div className="petugas-pill" key={mi}>
-                          <UserRound size={13} /> <span>{nama}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            {(tab === "uks" ? roster.uks_schedule : roster.lapangan_schedule)?.map((shift, sIdx) => (
+              <div className="rss-row" key={sIdx}>
+                <div className="rss-date">
+                  <strong>{shift.tanggal}</strong>
+                  <span className="tag">{shift.hari}</span>
                 </div>
-              ))
-            ) : (
-              <div style={{ display: "grid", gap: "14px" }}>
-                <div className="fair-badge" style={{ alignSelf: "start" }}>
-                  <Check size={16} /> DISTRIBUSI SECARA ALGORITMA SUDAH DI TES ADIL (Selisih frekuensi antar anggota ≤ 1)
-                </div>
-                <p className="modal-muted">Algoritma Fair Shuffling kami mendistribusikan shift agar setiap anggota mendapatkan jumlah giliran yang seimbang dalam sebulan, tanpa jadwal berturut-turut pada hari berikutnya dan tanpa bentrok hari Senin antara UKS dan Lapangan.</p>
-                <div className="audit-chips">
-                  {Object.entries(roster.summary_counts || {}).map(([nama, c]) => (
-                    <div className="audit-chip" key={nama}>
-                      <strong>{nama}</strong>
-                      <span>UKS: {c.uks} · Lapangan: {c.lapangan} ➔ <b>Total: {c.total} shift</b></span>
-                    </div>
-                  ))}
-                  {!Object.keys(roster.summary_counts || {}).length && (
-                    <p className="modal-muted">Statistik keadilan akan muncul setelah jadwal digenerate dari Portal Admin.</p>
-                  )}
+                <div className="rss-petugas">
+                  <span>Petugas bertugas ({shift.petugas?.length || 0} orang):</span>
+                  <div className="petugas-pills">
+                    {shift.petugas?.map((nama, mi) => (
+                      <div className="petugas-pill" key={mi}>
+                        <UserRound size={13} /> <span>{nama}</span>
+                      </div>
+                    ))}
+                    {!shift.petugas?.length && <p className="empty-msg">Belum ada petugas untuk shift ini.</p>}
+                  </div>
                 </div>
               </div>
+            ))}
+            {!(tab === "uks" ? roster.uks_schedule : roster.lapangan_schedule)?.length && (
+              <div className="empty-box"><p>Jadwal untuk bagian ini belum diterbitkan.</p></div>
             )}
           </div>
 
